@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BMFinder</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <h1>BMFinder</h1>
+    <div id="pop-status" class="status">Loading...</div>
+  </header>
+
+  <main class="container">
+    <div id="pop-context" class="context"></div>
+
+    <div class="action-group">
+      <button id="pop-track" class="btn btn-primary">Track this player</button>
+    </div>
+
+    <div class="button-row">
+      <button id="pop-dashboard" class="btn btn-secondary">Open dashboard</button>
+      <button id="pop-refresh" class="btn btn-secondary">Refresh watchlist</button>
+    </div>
+
+    <div id="pop-msg" class="message"></div>
+  </main>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

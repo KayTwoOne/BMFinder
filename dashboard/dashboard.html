@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BMFinder</title>
+<link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+<header>
+  <h1><b>BM</b>Finder</h1>
+  <span class="sub">extension</span>
+  <span class="right" id="hdr-status"></span>
+  <button id="btn-obfuscate" class="icon-btn" type="button" title="Hide names and IDs for screenshots" aria-label="Hide names and IDs for screenshots" aria-pressed="false">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 5.3 3.3 4l16.7 16.7-1.3 1.3-2.9-2.9c-1.2.5-2.5.9-3.8.9-4.3 0-8.3-2.9-10-7 .8-1.9 2.1-3.5 3.7-4.6L2 5.3zM12 9c1.7 0 3 1.3 3 3 0 .4-.1.8-.2 1.1l-3.9-3.9C11.2 9.1 11.6 9 12 9zm0-4c4.3 0 8.3 2.9 10 7-.6 1.5-1.6 2.8-2.8 3.9l-2.2-2.2c.6-.7 1.1-1.6 1.4-2.5C17.3 8.6 14.8 7 12 7c-.5 0-1 .1-1.5.2L8.7 5.4C9.7 5.1 10.8 5 12 5z"/></svg>
+  </button>
+  <button id="btn-settings" class="icon-btn" type="button" title="Appearance settings" aria-label="Appearance settings">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7zm7.4-2.5a7.7 7.7 0 0 0 .05-1 7.7 7.7 0 0 0-.05-1l2-1.6a.5.5 0 0 0 .12-.62l-1.9-3.3a.5.5 0 0 0-.6-.22l-2.4.96a7 7 0 0 0-1.7-1l-.36-2.5a.5.5 0 0 0-.5-.42h-3.8a.5.5 0 0 0-.5.42l-.36 2.5a7 7 0 0 0-1.7 1l-2.4-.96a.5.5 0 0 0-.6.22l-1.9 3.3a.5.5 0 0 0 .12.62l2 1.6a7.7 7.7 0 0 0 0 2l-2 1.6a.5.5 0 0 0-.12.62l1.9 3.3a.5.5 0 0 0 .6.22l2.4-.96a7 7 0 0 0 1.7 1l.36 2.5a.5.5 0 0 0 .5.42h3.8a.5.5 0 0 0 .5-.42l.36-2.5a7 7 0 0 0 1.7-1l2.4.96a.5.5 0 0 0 .6-.22l1.9-3.3a.5.5 0 0 0-.12-.62z"/></svg>
+  </button>
+</header>
+
+<div id="scrim" class="scrim hide"></div>
+<div id="settings-panel" class="settings-panel hide" role="dialog" aria-label="Appearance settings">
+  <h3>Appearance</h3>
+  <div class="settings-label">Mode</div>
+  <div class="seg" id="mode-seg">
+    <button data-mode="system" type="button">System</button>
+    <button data-mode="light" type="button">Light</button>
+    <button data-mode="dark" type="button">Dark</button>
+  </div>
+  <div class="settings-label">Accent colour</div>
+  <div class="swatches" id="swatches"></div>
+</div>
+
+<div class="wrap" data-route="search">
+
+  <div id="extract-warning" class="warn hide"></div>
+
+  <div class="tabs" id="tabs">
+    <button data-tab="search" class="active" type="button">Search</button>
+    <button data-tab="scan" type="button">ID Scan</button>
+    <button data-tab="watch" type="button">Watchlist</button>
+    <button data-tab="servers" type="button">Servers</button>
+    <button data-tab="monitor" type="button">Monitor</button>
+    <button data-tab="archive" type="button">Archive</button>
+  </div>
+
+  <!-- ============ SEARCH ============ -->
+  <div data-panel="search">
+    <div class="page-head">
+      <div class="titles">
+        <h1>Search</h1>
+        <p>Look a player up through the RCON view, which resolves profiles the public
+          player list hides. Results are ordered by how recently each one was seen.</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row items-end form-compact">
+        <div class="w-150"><label for="s-mode">Search by</label>
+          <select id="s-mode"><option value="name">Name (fuzzy)</option>
+            <option value="steamid">Steam ID</option><option value="playerid">Player ID</option></select></div>
+        <div class="f3"><label for="s-name">Value</label><input id="s-name" placeholder="e.g. Richard" autocomplete="off"></div>
+        <div class="w-auto"><button id="s-go" type="button">Search</button></div>
+      </div>
+      <div class="msg" id="s-msg"></div>
+    </div>
+    <div class="card hide" id="s-resultcard">
+      <h2><span>Results</span><span class="note grow" id="s-meta"></span>
+        <button class="secondary small" id="s-export" type="button">Export CSV</button></h2>
+      <div class="table-wrap"><table id="s-table"><thead><tr><th class="col-80">Match</th><th>Name</th>
+        <th class="col-110">Player ID</th><th class="col-110 opt-2">First seen</th>
+        <th class="col-110">Last seen</th><th class="col-130"></th></tr></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- ============ ID SCAN ============ -->
+  <div data-panel="scan" class="hide">
+    <div class="page-head">
+      <div class="titles">
+        <h1>ID range scan</h1>
+        <p>Walk a block of player IDs one at a time, matching each name against a target.
+          Every ID costs a full page load in a real tab, so keep the range small.</p>
+      </div>
+    </div>
+    <div class="info">
+      <svg class="info-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+      <div class="info-body">
+        <h3>Pick where to start before you scan</h3>
+        <p>A linear walk covers a few hundred IDs an hour against a space of hundreds of millions,
+          so where the range starts matters far more than how long it runs. Seek a date first: that
+          bisects the ID space in about thirty page loads and hands back a neighbourhood worth scanning.</p>
+        <details>
+          <summary>Why bisecting works</summary>
+          <p>IDs are handed out in roughly the order BattleMetrics first sees each player, and every
+            player page reports its first-seen date. That makes the ID space an approximately sorted
+            array keyed by date, so each probe can discard half of what is left. It is approximate,
+            not exact, so the seek reports the bracket it actually probed rather than a single
+            boundary it cannot prove.</p>
+        </details>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Seek an ID by date</h2>
+      <p class="note mt-n4">Finds roughly where accounts first seen on a given date sit in the ID
+        space, then offers that as the scan start.</p>
+      <div class="row items-end form-compact">
+        <div><label for="k-date">First seen around</label><input id="k-date" type="date"></div>
+        <div><label for="k-low">Search from ID</label><input id="k-low" type="number" value="1" min="1"></div>
+        <div><label for="k-high">Search to ID</label><input id="k-high" type="number" value="1200000000" min="2"></div>
+        <div class="w-auto"><div class="btn-group">
+          <button id="k-go" type="button">Seek</button>
+          <button id="k-stop" class="secondary" type="button" disabled>Stop</button>
+        </div></div>
+      </div>
+      <div class="msg" id="k-msg"></div>
+      <div id="k-result"></div>
+    </div>
+    <div class="card">
+      <p class="note mt-0">Player IDs are global and roughly chronological, now in the
+        hundreds of millions. Seed the start near a known contemporary rather than starting at 1.</p>
+      <div class="row items-end form-compact">
+        <div class="f3"><label for="c-seed">Seed: paste a known player URL or ID</label>
+          <input id="c-seed" placeholder="https://www.battlemetrics.com/rcon/players/123456789"></div>
+        <div class="w-auto"><button class="secondary" id="c-useseed" type="button">Use as start</button></div>
+      </div>
+      <div class="row mt-12 form-compact">
+        <div class="f3"><label for="c-name">Target name to match</label><input id="c-name" placeholder="e.g. Richard"></div>
+        <div><label for="c-start">Start ID</label><input id="c-start" type="number" value="1" min="1"></div>
+        <div><label for="c-dir">Direction</label><select id="c-dir"><option value="up">Ascending (+1)</option>
+          <option value="down">Descending (-1)</option></select></div>
+      </div>
+      <div class="row mt-12 form-compact">
+        <div><label for="c-count">How many IDs</label><input id="c-count" type="number" value="200" min="1" max="100000"></div>
+        <div><label for="c-delay">Delay per request (s)</label><input id="c-delay" type="number" value="1.2" min="0" max="30" step="0.1"></div>
+        <div><label for="c-thresh">Match threshold (%)</label><input id="c-thresh" type="number" value="95" min="1" max="100"></div>
+        <div class="flex items-end gap-8">
+          <button id="c-go" type="button">Start scan</button>
+          <button id="c-stop" class="secondary" type="button" disabled>Stop</button></div>
+      </div>
+      <div class="flex gap-18 mt-10 flex-wrap">
+        <label class="checkbox-label">
+          <input type="checkbox" id="c-misses" checked class="chk"> Log every ID</label>
+        <label class="checkbox-label" title="Score IDs this device has already seen from storage instead of loading their page again">
+          <input type="checkbox" id="c-cache" checked class="chk"> Reuse IDs already seen</label>
+      </div>
+      <div class="eta" id="c-eta"></div>
+    </div>
+    <div class="card">
+      <h2><span>Live output</span><span class="grow"></span>
+        <button class="secondary small" id="c-clear" type="button">Clear log</button></h2>
+      <div class="mb-10">
+        <span class="stat">Checked <b id="c-checked">0</b></span><span class="stat">Matches <b id="c-hits">0</b></span>
+        <span class="stat">Last ID <b id="c-last">-</b></span><span class="stat text-muted" id="c-state">idle</span>
+      </div>
+      <div class="log" id="c-log"></div>
+    </div>
+    <div class="card hide" id="c-hitcard">
+      <h2><span>Matches</span><span class="grow"></span><button class="secondary small" id="c-export" type="button">Export CSV</button></h2>
+      <div class="table-wrap"><table id="c-table"><thead><tr><th class="col-80">Match</th><th>Name</th>
+        <th class="col-110">Player ID</th><th class="col-110 opt-2">First seen</th><th class="col-130"></th></tr></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- ============ WATCHLIST ============
+       The table is the reason to open this route, so it comes first. Adding,
+       importing and tag management are disclosure panels opened from the page
+       header rather than three permanent cards pushing the table off screen. -->
+  <div data-panel="watch" class="hide">
+    <div class="page-head">
+      <div class="titles">
+        <h1>Watchlist</h1>
+        <p>Everyone you track, with their roles, tags and identity history. Players with the
+          role <b>Admin</b> are the ones the Monitor correlates absences against.</p>
+      </div>
+      <div class="actions">
+        <button id="w-addtoggle" type="button" aria-expanded="false" aria-controls="w-addpanel">Add player</button>
+        <button class="secondary" id="w-refresh" type="button"
+          title="Re-reads every watched player's BattleMetrics profile for their current name, alias history and last seen. This makes network requests.">Refresh player details</button>
+        <button class="secondary" id="imp-toggle" type="button" aria-expanded="false" aria-controls="imp-panel">Import players</button>
+        <button class="secondary" id="tag-toggle" type="button" aria-expanded="false" aria-controls="tag-panel">Manage tags</button>
+        <button class="secondary" id="w-export" type="button">Export CSV</button>
+      </div>
+    </div>
+
+    <div class="panel hide" id="w-addpanel">
+      <h3><span class="grow">Add a player</span>
+        <button class="panel-close" data-closepanel="w-addpanel" type="button">Close</button></h3>
+      <p class="note mt-n4">Role <b>Admin</b> marks the people whose online and offline
+        windows the Monitor correlates against. Everything else is a suspect or a bookmark.</p>
+      <div class="row items-end">
+        <div><label for="w-id">Player ID</label><input id="w-id" type="number" placeholder="e.g. 966805377"></div>
+        <div><label for="w-nick">Nickname</label><input id="w-nick" placeholder="e.g. HeadAdmin Steve"></div>
+        <div class="w-140"><label for="w-role">Role</label><select id="w-role">
+          <option value="admin">Admin (protect)</option><option value="suspect">Suspect (watch)</option>
+          <option value="player">Player</option><option value="other">Other</option></select></div>
+        <div class="f2"><label for="w-note">Note</label><input id="w-note"></div>
+        <div class="w-auto"><button id="w-add" type="button">Add</button></div>
+      </div>
+      <div class="msg" id="w-msg"></div>
+    </div>
+
+    <div class="panel hide" id="imp-panel">
+      <h3><span class="grow">Import players</span>
+        <button class="panel-close" data-closepanel="imp-panel" type="button">Close</button></h3>
+      <p class="note mt-n4">Pull in your BattleMetrics player bookmarks. Each bookmark title becomes the
+        nickname, and you can change roles afterwards. Players already tracked are left untouched.</p>
+      <div class="row items-end">
+        <div class="w-150"><label for="imp-role">Import as role</label><select id="imp-role">
+          <option value="player">Player</option><option value="suspect">Suspect</option>
+          <option value="admin">Admin</option><option value="other">Other</option></select></div>
+        <div class="w-auto"><div class="btn-group">
+          <button id="imp-bookmarks" type="button">From browser bookmarks</button>
+          <button class="secondary" id="imp-file" type="button">From bookmarks file</button>
+        </div></div>
+      </div>
+      <input type="file" id="imp-fileinput" accept=".html,text/html" class="hide">
+      <div class="msg" id="imp-msg"></div>
+    </div>
+
+    <div class="panel hide" id="tag-panel">
+      <h3><span class="grow">Manage tags</span>
+        <button class="panel-close" data-closepanel="tag-panel" type="button">Close</button></h3>
+      <p class="note mt-n4">Your own labels, with your own colour. Favourite is built in. Ctrl+click rows
+        first to tag several players at once.</p>
+      <div class="row items-end">
+        <div class="f2"><label for="tag-name">Tag name</label><input id="tag-name" placeholder="e.g. Favourite"></div>
+        <div class="w-150"><label for="tag-colour">Colour</label><input id="tag-colour" type="color" value="#ffb300"></div>
+        <div class="w-auto"><button id="tag-add" type="button">Add tag</button></div>
+      </div>
+      <div id="tag-list" class="mt-12"></div>
+      <div class="msg" id="tag-msg"></div>
+    </div>
+
+    <div class="card">
+      <h2><span>Watched players</span><span class="grow"></span>
+        <span class="note" id="w-refreshinfo"></span></h2>
+      <div class="bulkbar hide" id="w-bulk"></div>
+      <div class="table-wrap wrap-cells"><table id="w-table"><thead><tr>
+        <th class="sortable" data-sort="nickname" tabindex="0" role="button">Player</th>
+        <th class="col-110 sortable" data-sort="role" tabindex="0" role="button">Role</th>
+        <th class="col-110 opt-1">Player ID</th>
+        <th class="col-110 sortable" data-sort="lastseen" tabindex="0" role="button">Last seen</th>
+        <th class="col-110 opt-2 sortable" data-sort="names" tabindex="0" role="button">Known names</th>
+        <th class="col-130"></th></tr></thead><tbody></tbody></table></div>
+      <p class="kbd-hint mt-8">Ctrl+click rows to select several. Double-click a nickname to rename it.
+        From the table: <kbd>&uarr;</kbd><kbd>&darr;</kbd> move, <kbd>Enter</kbd> opens details,
+        <kbd>Space</kbd> selects, <kbd>M</kbd> opens the row menu.</p>
+    </div>
+  </div>
+
+  <!-- ============ SERVERS ============ -->
+  <div data-panel="servers" class="hide">
+    <div class="page-head">
+      <div class="titles">
+        <h1>Servers</h1>
+        <p>The servers the Monitor polls. Find one by name, or add it directly by ID if you
+          already have it.</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="segmented" id="sv-mode" role="tablist" aria-label="How to add a server">
+        <button data-svmode="search" class="active" type="button" role="tab" aria-selected="true">Search by name</button>
+        <button data-svmode="add" type="button" role="tab" aria-selected="false">Add by ID</button>
+      </div>
+      <div id="sv-pane-search">
+        <div class="row items-end form-compact">
+          <div class="f3"><label for="sv-q">Search Arma 3 servers by name</label><input id="sv-q" placeholder="e.g. CodeFourGaming"></div>
+          <div class="w-auto"><button id="sv-search" type="button">Search</button></div>
+        </div>
+        <div class="mt-10" id="sv-searchresults"></div>
+      </div>
+      <div id="sv-pane-add" class="hide">
+        <div class="row items-end form-compact">
+          <div><label for="sv-id">Server ID</label><input id="sv-id" type="number" placeholder="e.g. 2197362"></div>
+          <div class="f2"><label for="sv-nick">Nickname</label><input id="sv-nick"></div>
+          <div class="f2"><label for="sv-note">Note</label><input id="sv-note"></div>
+          <div class="w-auto"><button id="sv-add" type="button">Add</button></div>
+        </div>
+      </div>
+      <div class="msg" id="sv-msg"></div>
+    </div>
+    <div class="card">
+      <h2>Tracked servers</h2>
+      <div class="table-wrap"><table id="sv-table"><thead><tr>
+        <th>Nickname</th><th>Server name</th><th class="col-110 opt-1">Server ID</th><th class="opt-2">Note</th>
+        <th class="col-110">Polls</th><th class="col-110"></th></tr></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- ============ MONITOR ============
+       One status chip in the page header is the source of truth for the
+       operational state. Everything below reports supporting facts and never
+       restates it. -->
+  <div data-panel="monitor" class="hide">
+    <div class="page-head">
+      <div class="titles">
+        <h1>Monitor</h1>
+        <p>Poll your tracked servers on a schedule and record who was on each one. The schedule runs
+          in the extension itself, so it keeps going once you close this tab.</p>
+      </div>
+      <div class="actions">
+        <span class="status status-stopped" id="mon-state" role="status" aria-live="polite">
+          <span class="dot"></span><span id="mon-state-text">Stopped</span>
+          <span class="status-sub" id="mon-state-sub"></span></span>
+      </div>
+    </div>
+
+    <div class="card hero">
+      <h2>At a glance</h2>
+      <div class="metrics">
+        <div class="metric lead"><span class="val unknown" id="m-online">&mdash;</span>
+          <span class="lbl">Watched online</span>
+          <span class="sub" id="m-online-sub">No poll recorded yet</span></div>
+        <div class="metric"><span class="val unknown" id="m-watched">&mdash;</span>
+          <span class="lbl">Tracked players</span></div>
+        <div class="metric"><span class="val unknown" id="m-servers">&mdash;</span>
+          <span class="lbl">Tracked servers</span></div>
+        <div class="metric"><span class="val unknown" id="m-snapshots">&mdash;</span>
+          <span class="lbl">Stored snapshots</span>
+          <span class="sub">Every poll ever kept on this device</span></div>
+        <div class="metric" id="m-lastpoll-card"><span class="val unknown" id="m-lastpoll">&mdash;</span>
+          <span class="lbl" id="m-lastpoll-lbl">Last successful poll</span>
+          <span class="sub" id="m-lastpoll-sub"></span></div>
+      </div>
+    </div>
+
+    <div class="info">
+      <svg class="info-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+      <div class="info-body">
+        <h3>Observation-based results</h3>
+        <p>BMFinder records only the activity it observes while monitoring is running. Correlations
+          are investigative leads, not definitive matches.</p>
+        <details>
+          <summary>Why the numbers need time</summary>
+          <p>Correlation built from occasional short runs samples your own habits as much as anyone
+            else's: a player looks &ldquo;absent whenever an admin is on&rdquo; if you only ever polled
+            while they happened to be offline. Long uninterrupted runs are what make the ratios mean
+            something. Treat a high percentage as a lead worth checking, never as a verdict.</p>
+        </details>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Polling</h2>
+      <p class="note mt-n4">Each cycle loads every tracked server once and stores who was on it. The
+        schedule is kept by the extension, so it survives closing this tab and restarting the browser.
+        <b>Pause</b> stops scheduling new cycles and lets any cycle in flight finish.
+        <b>Stop</b> also cancels the cycle in flight. Neither deletes anything.</p>
+      <div class="row items-end form-compact">
+        <div class="w-200"><label for="mon-interval">Poll every</label>
+          <select id="mon-interval">
+            <option value="60">1 minute</option>
+            <option value="120">2 minutes</option>
+            <option value="300" selected>5 minutes</option>
+            <option value="600">10 minutes</option>
+            <option value="900">15 minutes</option>
+            <option value="1800">30 minutes</option>
+          </select></div>
+        <div class="w-auto"><div class="btn-group">
+          <button class="btn-lg" id="mon-toggle" type="button">Start monitoring</button>
+          <button id="mon-stop" class="secondary" type="button" disabled>Stop monitoring</button>
+          <button id="mon-poll" class="secondary" type="button">Poll all servers now</button>
+        </div></div>
+      </div>
+      <div class="note mt-8" id="mon-pollmsg"></div>
+      <div class="facts" id="mon-status"></div>
+      <div id="mon-progress"></div>
+    </div>
+
+    <div class="card">
+      <h2><span>Currently online</span><span class="grow"></span>
+        <button class="secondary small" id="mon-refreshonline" type="button"
+          title="Re-reads the snapshots already stored on this device. Does not contact BattleMetrics.">Reload results</button></h2>
+      <div id="mon-online" class="srv-rows"><p class="note">No snapshots yet.</p></div>
+    </div>
+
+    <div class="card">
+      <h2><span>Absence correlation</span><span class="grow"></span>
+        <label class="flex items-center gap-6 m-0 fs-12" for="mon-min">min sightings
+          <input id="mon-min" type="number" value="3" min="1" class="w-60 p-compact"></label>
+        <button class="secondary small" id="mon-corr" type="button">Compute</button>
+        <button class="secondary small" id="mon-correxport" type="button">Export CSV</button></h2>
+      <div class="note mb-8" id="mon-corrmeta"></div>
+      <div class="table-wrap"><table id="mon-corrtable"><thead><tr>
+        <th class="col-90">Absent %</th><th>Player</th><th class="col-110 opt-1">Player ID</th>
+        <th class="col-80">Sightings</th><th class="col-70 opt-2">Absent</th><th class="col-70 opt-2">Present</th>
+        <th class="col-110">Last seen</th><th class="col-130"></th></tr></thead><tbody></tbody></table></div>
+    </div>
+
+    <div class="card">
+      <h2>Backup</h2>
+      <p class="note mt-n4">Extension data lives in the browser profile, so exporting is how you keep a copy.</p>
+      <div class="flex gap-8 flex-wrap">
+        <button id="btn-export" type="button">Export JSON</button>
+        <button class="secondary" id="btn-import" type="button">Import JSON</button>
+      </div>
+      <input type="file" id="file-import" accept="application/json" class="hide">
+      <hr class="divider">
+      <p class="note mt-0">Clearing polls removes stored snapshots, presence history and the correlation
+        tallies built from them. Your watched players, tags and tracked servers are kept.</p>
+      <button class="danger" id="btn-clearpolls" type="button">Clear stored polls</button>
+      <div class="msg" id="clear-msg"></div>
+    </div>
+  </div>
+
+  <!-- ============ ARCHIVE ============ -->
+  <div data-panel="archive" class="hide">
+    <div class="page-head">
+      <div class="titles">
+        <h1>Archive</h1>
+        <p>Every stored poll replayed newest first, so you can see who was on a server together
+          at any recorded moment.</p>
+      </div>
+    </div>
+    <div class="info">
+      <svg class="info-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+      <div class="info-body">
+        <h3>Only what was polled</h3>
+        <p>This covers polls already taken, so it fills up as the Monitor runs, and it keeps a rolling
+          window rather than everything forever.</p>
+      </div>
+    </div>
+    <div class="card">
+      <h2><span>Snapshots</span><span class="grow"></span>
+        <span class="note" id="arch-stats"></span>
+        <button class="secondary small" id="arch-refresh" type="button"
+          title="Re-reads snapshots stored on this device. Does not contact BattleMetrics.">Reload snapshots</button>
+        <button class="secondary small" id="arch-export" type="button">Export CSV</button></h2>
+      <div class="arch-controls">
+        <div class="w-200"><label for="arch-server">Server</label>
+          <select id="arch-server"><option value="">All tracked servers</option></select></div>
+        <div class="w-150"><label for="arch-limit">Show</label>
+          <select id="arch-limit">
+            <option value="30">Last 30 polls</option>
+            <option value="60" selected>Last 60 polls</option>
+            <option value="150">Last 150 polls</option>
+            <option value="300">Last 300 polls</option>
+          </select></div>
+        <div class="f2"><label for="arch-filter">Filter by player</label>
+          <input id="arch-filter" placeholder="Name or ID, leave blank for everyone"></div>
+        <div class="w-auto"><label class="checkbox-label">
+          <input type="checkbox" id="arch-watched" class="chk"> Watched only</label></div>
+      </div>
+      <div id="arch-list" class="scroll-y"><p class="note">No snapshots stored yet. Start the Monitor to collect some.</p></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Transient confirmations, and the undo for anything that removed something. -->
+<div class="snackbar-host" id="snackbars" role="region" aria-label="Notifications" aria-live="polite"></div>
+<!-- Side sheet mount. Contents are built per player by dashboard.js. -->
+<div id="sheet-mount"></div>
+
+<script type="module" src="dashboard.js"></script>
+</body>
+</html>

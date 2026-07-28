@@ -1,0 +1,13 @@
+node_modules/
+*.log
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Anything unpacked or zipped for distribution
+*.zip
+*.crx
+*.pem
