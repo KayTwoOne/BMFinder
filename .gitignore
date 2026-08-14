@@ -23,3 +23,11 @@ local/bmfinder.db
 # Scratch output from the Dieter Rams design audits. The findings that mattered
 # were acted on in the code; the artifacts are working notes, not deliverables.
 DESIGN-IS-*/
+
+# Unsent draft correspondence, still carrying [PLACEHOLDER] tokens.
+docs/BM Enquiry.txt
+
+# Build artifact. Regenerate with "npm run package" before uploading to the
+# Chrome Web Store; it is byte-verified against extension/, so committing it
+# would only duplicate every source change in the diff.
+webstore/

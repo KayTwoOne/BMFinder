@@ -10,6 +10,7 @@
    Passive reads cost nothing: they are pages the user opened anyway. */
 
 import { db } from "../lib/db.js";
+import { entriesFor, storesForParts } from "../lib/transfer.js";
 import {
   matchScore, searchTerm, unsearchable, usesWildcard,
   rankSearchResults, confidenceScore, EVIDENCE,
@@ -1030,7 +1031,32 @@ const handlers = {
   CANCEL: async () => { if (job) job.cancelled = true; return { ok: true }; },
   ONLINE: async () => ({ online: await db.currentOnline() }),
   EXPORT: async () => ({ json: await db.exportAll() }),
-  IMPORT: async (m) => { await db.importAll(m.json); return { ok: true }; },
+  /* Restore a full backup. Destructive by design - importAll refuses anything
+     that is not recognisably a backup, and the dashboard confirms the
+     replacement before sending this. */
+  IMPORT: async (m) => ({ ok: true, result: await db.importAll(m.json) }),
+  /* Selective import: only the parts that were ticked, applied the way that was
+     chosen. Everything else in the file is discarded rather than written. */
+  IMPORT_PARTS: async (m) => {
+    const result = await db.importSelective(m.json, storesForParts(m.parts), m.mode);
+    return { ok: true, result, watch: await db.listWatch(), servers: await db.listServers() };
+  },
+  /* Merge a shared list or CSV. The plan was computed in the dashboard against
+     the saved list and shown to the user; this only writes what they approved. */
+  IMPORT_PEOPLE: async (m) => {
+    const existing = await db.listWatch();
+    const entries = entriesFor(m.plan, existing, { overwriteLabels: !!m.overwriteLabels });
+    const res = await db.importPeople(entries);
+    /* Followed servers ride along in a BMFinder list. addServer writes only the
+       fields it is given, so a server already followed keeps its own nickname
+       and note. */
+    let servers = 0;
+    for (const entry of (m.serverPlan ? [...m.serverPlan.add, ...m.serverPlan.update] : [])) {
+      await db.addServer(entry);
+      servers++;
+    }
+    return { ...res, servers, watch: await db.listWatch(), serverList: await db.listServers() };
+  },
   GET_SETTING: async (m) => ({ value: await db.getSetting(m.key, m.dflt) }),
   SET_SETTING: async (m) => { await db.setSetting(m.key, m.value); return { ok: true }; },
 };
@@ -1041,7 +1067,18 @@ const handlers = {
    that field later cannot silently expose every handler. A message from a tab
    must come from a battlemetrics.com page, which is the only place our content
    scripts run. */
-function senderAllowed(sender) {
+/* The only two messages a content script has any business sending. Everything
+   else - saving people, changing retention, deleting the database - belongs to
+   the extension's own pages.
+
+   The content script runs in an isolated world, so a compromised battlemetrics
+   page cannot reach chrome.runtime directly, and reader.js listens for no page
+   events that could be used to launder a message through it. This is defence in
+   depth rather than a fix for a known hole: the cost is one Set, and it means a
+   future change to reader.js cannot quietly widen what the site can ask for. */
+const CONTENT_SCRIPT_MESSAGES = new Set(["PAGE_DATA", "EXTRACT_FAILED"]);
+
+function senderAllowed(sender, type) {
   if (!sender || sender.id !== chrome.runtime.id) return false;
   let origin;
   try {
@@ -1049,17 +1086,19 @@ function senderAllowed(sender) {
   } catch {
     return false;
   }
-  // The dashboard is the options page, so it runs IN A TAB and therefore has
-  // sender.tab set exactly like a content script does. Checking only the
-  // battlemetrics origin would reject every message the dashboard sends, so our
-  // own extension origin has to be allowed explicitly.
-  return origin === SITE || origin === `chrome-extension://${chrome.runtime.id}`;
+  // Our own pages may use the whole message surface.
+  if (origin === `chrome-extension://${chrome.runtime.id}`) return true;
+  /* The dashboard is the options page, so it runs IN A TAB and has sender.tab
+     set exactly like a content script does - which is why the origin, not the
+     presence of a tab, is what distinguishes them. */
+  if (origin === SITE) return CONTENT_SCRIPT_MESSAGES.has(type);
+  return false;
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, respond) => {
   const fn = msg && handlers[msg.type];
   if (!fn) return false;
-  if (!senderAllowed(sender)) { respond({ error: "Rejected: unrecognised sender." }); return true; }
+  if (!senderAllowed(sender, msg.type)) { respond({ error: "Rejected: unrecognised sender." }); return true; }
   // The worker can be torn down between messages, so open the database per call.
   db.init()
     .then(() => fn(msg, sender))

@@ -1,62 +1,95 @@
-# Chrome Web Store Listing Copy for BMFinder
+# Chrome Web Store listing copy for BMFinder
 
-## Short description (under 132 characters)
+Category: **Social & Communication**
 
-Track players and servers on BattleMetrics: a watchlist with notes, tracked servers, and a local presence monitor.
+## Short description (limit 132 characters)
 
-(114 characters)
+See when the players you follow are online on the game servers you track.
+
+(73 characters. This is also the manifest `description`; keep the two identical.)
 
 ## Detailed description
 
-BMFinder is a browser extension for battlemetrics.com that helps you keep
-track of the people you play with and the servers you care about.
+BMFinder helps you save and recognise the people you play Arma 3 with.
 
-BMFinder works using your own logged-in battlemetrics.com session. It does
-not use any API and does not access any other website. When you search for
-a player or when the Monitor checks a tracked server, BMFinder opens the
-relevant battlemetrics.com page in a background browser tab, at a
-deliberately paced rate, and reads the page content your browser has
-already rendered, the same content you would see if you visited the page
-yourself.
+Players change their in-game name constantly. You finish a good round with
+someone, go looking for them a week later, and the name you remember is gone.
+BMFinder lets you save that person under a label that means something to you,
+and tells you when they turn up again on a server you follow.
 
-Features:
+Everything stays on your own device. There is no BMFinder account, no BMFinder
+server, no analytics, and no third party of any kind.
 
-- Player search: look up a player by name on battlemetrics.com from within
-  the extension.
-- Watchlist: keep a list of players with your own nicknames, roles, tags,
-  and notes attached, so you can remember who is who and why you are
-  tracking them.
-- Tracked servers: keep a list of the servers you care about.
-- Monitor: on a schedule you control (five minutes at the fastest, and the
-  default), BMFinder checks your tracked servers and records who was online
-  at that moment.
-- Archive: replay the polls you have already collected, so you can see who
-  was on a server and when.
+**What you can do**
 
-All data BMFinder collects, your watchlist, tracked servers, notes, and
-poll history, is stored only on your own device, using your browser's
-local storage. Nothing is sent anywhere. There is no BMFinder server, no
-analytics, and no third-party service involved. You can export your data as
-JSON at any time and clear stored polls from within the extension.
+- Save people you recognise, with your own label, a note, tags, and how you
+  know them: friend, teammate, community member, server staff, or other.
+- See their current in-game name, and the names they used before, so a rename
+  never loses them.
+- Follow the servers you play on and see who is on them.
+- Turn on live updates while the dashboard is open to build up a picture of who
+  plays when.
+- Find someone by name, including multi-word and decorated names.
 
-BMFinder requires you to already be logged in to battlemetrics.com in your
-browser, since it uses your existing session rather than any separate
-login or API key.
+**How it works**
 
-## Category
+BMFinder reads BattleMetrics pages in your own browser, using the session you
+are already signed in with. It does not use an API, does not ask for your
+password, and never touches any other website.
 
-Social Networking
+When you ask for a refresh or turn on live updates, it opens BattleMetrics
+pages one at a time in a background tab, deliberately paced, and reads what
+your browser has already rendered. Live updates only run while the dashboard is
+open, and stop when you close it.
 
-## Suggested language
+**Your data, your control**
 
-English
+- Recent activity is kept for 14 days by default, and you can set it from 1 to
+  90 days or clear it whenever you like.
+- Exports ask what the file is for and let you choose which fields to include.
+  Player IDs are always included because they are needed for re-importing.
+- A Data and privacy section shows exactly what is stored and lets you delete
+  any part of it, or all of it.
 
-## Single Purpose statement
+**What BMFinder will not do**
 
-BMFinder's single purpose is to help a battlemetrics.com user track the
-online presence of specific players on specific game servers over time,
-using the user's own logged-in session, and to let the user keep personal
-notes on those players. Every feature (player search, watchlist, tracked
-servers, the Monitor, and the Archive) exists to support that one purpose:
-watching for when people you know are on servers you care about, and
-remembering who they are.
+- It will not reveal profiles BattleMetrics has made private or unavailable.
+- It will not tell you whether anyone is cheating, and it will not score,
+  rank, or flag anyone as suspicious.
+- It is not a moderation tool and not a public player database.
+
+BMFinder is an independent community project. It is not affiliated with,
+endorsed by, sponsored by, or produced by BattleMetrics, Valve, Steam, Bohemia
+Interactive, or Arma.
+
+## Screenshots to capture (1280x800)
+
+The old set is stale and must be replaced. Turn on **Presentation mode** (the
+screen icon in the header) before capturing so in-game names and player IDs are
+blurred in every shot.
+
+1. **People — tiles.** The main view. Shows saved people with labels,
+   relationships and last observed.
+2. **People — list.** The same list as a table, showing sorting and filtering.
+3. **Find players.** A search with results, showing the "on your servers"
+   column.
+4. **Live activity.** The schedule and at-a-glance numbers.
+5. **Data and privacy.** Retention, storage summary, and the deletion controls.
+   This is the one that answers a reviewer's questions before they ask.
+
+## Single purpose statement
+
+BMFinder lets a player keep a personal, local list of the Arma 3 players they
+know and see when those players are online on servers they follow, using
+BattleMetrics pages in their own browser.
+
+## Permission justifications
+
+See PERMISSION-JUSTIFICATIONS.md. Summary:
+
+- `storage` and IndexedDB: the saved list and settings, on the device only.
+- `tabs`: to open and read one BattleMetrics page at a time during a refresh.
+- `alarms`: to schedule live updates while the dashboard is open.
+- `bookmarks`: **optional**, requested only when the user imports their own
+  BattleMetrics bookmarks, and never requested otherwise.
+- Host permission is limited to `https://www.battlemetrics.com/*`.

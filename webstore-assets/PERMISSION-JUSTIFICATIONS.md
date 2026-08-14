@@ -18,14 +18,6 @@ battlemetrics.com page at all, since there is no API being called; the
 extension's only way to get player and server data is to load the real
 page in a tab and read it.
 
-## unlimitedStorage
-
-Used because presence history and poll snapshots recorded by the Monitor
-accumulate over time and are stored in IndexedDB. Without this permission,
-the browser's default storage quota would cause older poll data to be
-evicted or new polls to fail to save once the quota is hit, breaking the
-Archive feature and truncating the user's presence history.
-
 ## alarms
 
 Used to schedule the Monitor's recurring poll of tracked servers (five

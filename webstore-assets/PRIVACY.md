@@ -60,9 +60,10 @@ local storage mechanisms:
 
 - `chrome.storage.local` for settings, watchlist entries, and tracked
   server lists.
-- IndexedDB for presence history and poll snapshots (this is why the
-  extension requests the `unlimitedStorage` permission, so that a long
-  history is not truncated by the browser's default storage cap).
+- IndexedDB for recent observations and server checks. These are pruned on a
+  retention window you control (14 days by default, 90 at most), so the stored
+  history stays small and bounded. The extension does not request the
+  `unlimitedStorage` permission.
 
 Nothing is uploaded, synced to a remote server, or shared with any
 third party. BMFinder has no analytics, no crash reporting, and no

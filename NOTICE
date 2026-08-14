@@ -1,0 +1,50 @@
+BMFinder
+Copyright 2026 dotKay
+
+This product includes software developed by dotKay (https://dotkay.dev/).
+
+Licensed under the Apache License, Version 2.0. See the LICENSE file for the
+full terms.
+
+--------------------------------------------------------------------------------
+Trademarks
+--------------------------------------------------------------------------------
+
+The Apache License does not grant permission to use the trade names,
+trademarks, service marks, or product names of the licensor, including
+"BMFinder" and "dotKay", except as required for reasonable and customary use in
+describing the origin of the work.
+
+If you publish a derivative work, please give it a different name so users can
+tell the two apart.
+
+--------------------------------------------------------------------------------
+Bundled third-party assets
+--------------------------------------------------------------------------------
+
+The following fonts are redistributed in extension/fonts/ and are NOT covered by
+the Apache License above. Each remains under its own licence.
+
+Chakra Petch
+  Copyright 2018 The Chakra Petch Project Authors
+  https://github.com/m4rc1e/Chakra-Petch.git
+  Licensed under the SIL Open Font License, Version 1.1
+  https://openfontlicense.org
+
+IBM Plex Sans
+  Copyright 2019 IBM Corp. All rights reserved.
+  https://github.com/IBM/plex
+  Licensed under the SIL Open Font License, Version 1.1
+  https://openfontlicense.org
+
+Both files here are subsetted to reduce size. The copyright lines above are
+taken from the metadata embedded in the shipped files.
+
+--------------------------------------------------------------------------------
+Affiliation
+--------------------------------------------------------------------------------
+
+BMFinder is an independent community project. It is not affiliated with,
+endorsed by, sponsored by, or produced by BattleMetrics, Valve, Steam, Bohemia
+Interactive, or Arma. Those names are the property of their respective owners
+and are used here only to describe what this software interoperates with.

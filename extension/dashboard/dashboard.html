@@ -108,7 +108,11 @@
       <label><input type="checkbox" data-f="currentName" checked> Current in-game names</label>
       <label><input type="checkbox" data-f="relationship" checked> Relationship categories</label>
       <label><input type="checkbox" data-f="tags" checked> Tags</label>
-      <label><input type="checkbox" data-f="playerId"> Player IDs</label>
+      <!-- Required, not a preference. The player ID is the only stable key an
+           import can match on: labels and in-game names both change, so a file
+           without it restores nobody. Locked on by expLockRequiredIds(). -->
+      <label class="locked"><input type="checkbox" data-f="playerId" checked disabled>
+        Player IDs <span class="required-tag">required</span></label>
       <label><input type="checkbox" data-f="lastServer"> Last observed server</label>
       <label><input type="checkbox" data-f="lastSeen"> Last observation time</label>
     </fieldset>
@@ -117,7 +121,10 @@
       <legend>Server fields</legend>
       <label><input type="checkbox" data-f="serverName" checked> Server names</label>
       <label><input type="checkbox" data-f="serverLink" checked> Server links</label>
-      <label><input type="checkbox" data-f="serverId"> Server IDs</label>
+      <!-- Required for the same reason: a followed server is restored by its
+           id, and the list format now carries servers as well as people. -->
+      <label class="locked"><input type="checkbox" data-f="serverId" checked disabled>
+        Server IDs <span class="required-tag">required</span></label>
     </fieldset>
 
     <fieldset class="exp-group">
@@ -155,6 +162,54 @@
   <div class="confirm-actions">
     <button class="secondary" id="exp-cancel" type="button">Cancel</button>
     <button id="exp-go" type="button">Export</button>
+  </div>
+</div>
+
+<!-- Import.
+
+     The mirror of the export dialog: a file is read first, then you choose what
+     comes out of it. Anything left unticked is discarded rather than written, so
+     restoring one part of a backup never drags the rest along with it. -->
+<div id="impd-scrim" class="sheet-scrim hide"></div>
+<div id="impd-dialog" class="exp-dialog hide" role="dialog" aria-modal="true"
+  aria-labelledby="impd-heading">
+  <h3 id="impd-heading">Import BMFinder data</h3>
+  <p class="note" id="impd-scope"></p>
+
+  <fieldset class="exp-group">
+    <legend>What to bring in</legend>
+    <div id="impd-parts">
+      <label><input type="checkbox" data-p="people" checked> <span><b>Saved people</b>
+        <em id="impd-count-people"></em></span></label>
+      <label><input type="checkbox" data-p="servers" checked> <span><b>Followed servers</b>
+        <em id="impd-count-servers"></em></span></label>
+      <label><input type="checkbox" data-p="activity"> <span><b>Recent activity</b>
+        <em id="impd-count-activity"></em></span></label>
+      <label><input type="checkbox" data-p="settings"> <span><b>Settings and tags</b>
+        <em id="impd-count-settings"></em></span></label>
+    </div>
+  </fieldset>
+
+  <fieldset class="exp-group">
+    <legend>How to apply it</legend>
+    <div class="exp-purposes" id="impd-mode">
+      <label><input type="radio" name="impd-mode" value="merge" checked> <span><b>Add to what I have</b>
+        <em>Keeps everything already here. Your own labels win where they differ.</em></span></label>
+      <label><input type="radio" name="impd-mode" value="replace"> <span><b>Replace the parts I ticked</b>
+        <em>Clears each ticked area first. Anything in it that is not in the file is lost.</em></span></label>
+    </div>
+  </fieldset>
+
+  <div class="exp-warn hide" id="impd-warn">
+    <h4>This will replace data you already have</h4>
+    <p id="impd-warn-body"></p>
+    <label class="exp-ack"><input type="checkbox" id="impd-ack"> I understand this cannot be undone.</label>
+  </div>
+
+  <div class="msg" id="impd-msg"></div>
+  <div class="confirm-actions">
+    <button class="secondary" id="impd-cancel" type="button">Cancel</button>
+    <button id="impd-go" type="button">Import</button>
   </div>
 </div>
 
@@ -219,7 +274,6 @@
           title="Re-reads each saved person's BattleMetrics profile for their current name, previous names and last seen. This makes network requests.">Refresh details</button>
         <button class="secondary" id="imp-toggle" type="button" aria-expanded="false" aria-controls="imp-panel">Import people</button>
         <button class="secondary" id="tag-toggle" type="button" aria-expanded="false" aria-controls="tag-panel">Manage tags</button>
-        <button class="secondary" id="w-export" type="button">Export CSV</button>
       </div>
     </div>
 
@@ -299,7 +353,7 @@
       <!-- Filtering, not another sort. Sorting reorders everything; at a couple
            of hundred saved people the more common need is "show me only these",
            and the count tells you what you are looking at. -->
-      <div class="filterbar" id="w-filter">
+      <div class="filterbar">
         <input id="w-search" type="search" placeholder="Filter by label or in-game name"
           aria-label="Filter saved people by label or in-game name" autocomplete="off">
         <span class="seg seg-sm" id="w-relfilter" role="group" aria-label="Filter by relationship">
@@ -397,7 +451,7 @@
       <h2>At a glance</h2>
       <div class="metrics">
         <div class="metric lead"><span class="val unknown" id="m-online">&mdash;</span>
-          <span class="lbl">Watched online</span>
+          <span class="lbl">Saved people online</span>
           <span class="sub" id="m-online-sub">No poll recorded yet</span></div>
         <div class="metric"><span class="val unknown" id="m-watched">&mdash;</span>
           <span class="lbl">Saved people</span></div>
@@ -431,9 +485,10 @@
         <b>Stop</b> also cancels the cycle in flight. Neither deletes anything.</p>
       <div class="row items-end form-compact">
         <div class="w-200"><label for="mon-interval">Check every</label>
+          <!-- Five minutes is the floor, not just the default. Anything faster
+               is more traffic than a person browsing produces, which is the line
+               this extension stays on the right side of. -->
           <select id="mon-interval">
-            <option value="60">1 minute</option>
-            <option value="120">2 minutes</option>
             <option value="300" selected>5 minutes</option>
             <option value="600">10 minutes</option>
             <option value="900">15 minutes</option>
@@ -458,16 +513,10 @@
     </div>
 
     <div class="card">
-      <h2>Backup</h2>
-      <p class="note mt-n4">Extension data lives in the browser profile, so exporting is how you keep a copy.</p>
-      <div class="flex gap-8 flex-wrap">
-        <button id="btn-export" type="button">Export JSON</button>
-        <button class="secondary" id="btn-import" type="button">Import JSON</button>
-      </div>
-      <input type="file" id="file-import" accept="application/json" class="hide">
-      <hr class="divider">
-      <p class="note mt-0">Clearing removes stored server checks and recent observations.
-        Your saved people, labels, tags and followed servers are kept.</p>
+      <h2>Stored checks</h2>
+      <p class="note mt-n4">Clearing removes stored server checks and recent observations.
+        Your saved people, labels, tags and followed servers are kept.
+        Backups live under <b>Data and privacy</b>.</p>
       <button class="danger" id="btn-clearpolls" type="button">Clear stored polls</button>
       <div class="msg" id="clear-msg"></div>
     </div>
@@ -509,7 +558,7 @@
         <div class="f2"><label for="arch-filter">Filter by player</label>
           <input id="arch-filter" placeholder="Name or ID, leave blank for everyone"></div>
         <div class="w-auto"><label class="checkbox-label">
-          <input type="checkbox" id="arch-watched" class="chk"> Watched only</label></div>
+          <input type="checkbox" id="arch-watched" class="chk"> Saved people only</label></div>
       </div>
       <div id="arch-list" class="scroll-y"><p class="note">No snapshots stored yet. Turn on live updates to collect some.</p></div>
     </div>
@@ -599,10 +648,14 @@
       </div>
 
       <div class="priv-control">
-        <p class="note">Downloads everything BMFinder has stored as one JSON file, so you have a copy
-          before removing anything.</p>
-        <button class="secondary" id="priv-export" type="button">Export a backup</button>
-        <div class="msg" id="priv-exportmsg"></div>
+        <p class="note">Export selected BMFinder data to a JSON file for backup, transfer, or sharing.
+          You can also import a JSON file and choose exactly which data you want to add.</p>
+        <div class="flex gap-8 flex-wrap">
+          <button class="secondary" id="priv-export" type="button">Export a backup</button>
+          <button class="secondary" id="priv-import" type="button">Import a file</button>
+        </div>
+        <input type="file" id="file-import" accept=".json,.csv,application/json,text/csv" class="hide">
+        <div class="msg" id="priv-importmsg"></div>
       </div>
     </div>
 

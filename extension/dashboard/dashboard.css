@@ -291,7 +291,11 @@ header .right:empty { display: none; }
    identical is what made the page read as a wall of rounded rectangles. */
 .metrics { display: flex; flex-wrap: wrap; gap: var(--s-3); }
 .metric {
-  flex: 1 1 150px; min-width: 140px;
+  /* min-content, not a fixed floor: an explicit min-width overrides flexbox's
+     default min-width:auto and lets a tile shrink narrower than its own value,
+     which clipped long ones (a full date) into the next tile. The 150px basis
+     still sets the resting width; this only stops the shrink going too far. */
+  flex: 1 1 150px; min-width: min-content;
   background: var(--md-surface-container); border-radius: var(--r-lg);
   padding: var(--s-4) var(--s-5);
   transition: background var(--dur) var(--ease);
@@ -329,8 +333,6 @@ header .right:empty { display: none; }
 /* Helper paragraphs are prose, so they get prose treatment: a comfortable line
    height and a measure that stops a 1360px page running text to the far edge. */
 p.note { line-height: 1.55; max-width: 78ch; }
-.text-muted { color: var(--md-on-surface-variant); }
-.fs-12 { font-size: var(--t-meta); }
 label { display: block; font-size: var(--t-meta); color: var(--md-on-surface-variant); margin: 0 0 var(--s-2); }
 /* short eyebrow label, the one place uppercase still belongs now that card
    headings read as sentence case titles */
@@ -469,7 +471,7 @@ button.ghost:hover, button.ghost:active,
 .flex { display: flex; } .flex-wrap { flex-wrap: wrap; }
 .items-end { align-items: flex-end; } .items-center { align-items: center; }
 .grow { flex: 1; }
-.gap-6 { gap: 6px; } .gap-8 { gap: 8px; } .gap-10 { gap: 10px; } .gap-18 { gap: 18px; }
+.gap-8 { gap: 8px; } .gap-10 { gap: 10px; }
 .f2 { flex: 2; } .f3 { flex: 3; }
 .w-auto { flex: 0 0 auto; min-width: 0; }
 .w-60 { flex: 0 0 60px; min-width: 0; } .w-140 { flex: 0 0 140px; }
@@ -484,7 +486,6 @@ button.ghost:hover, button.ghost:active,
 .p-compact { padding: 6px 8px; }
 .m-0 { margin: 0; } .mt-0 { margin-top: 0; } .mt-n4 { margin-top: -4px; }
 .mt-8 { margin-top: 8px; } .mt-10 { margin-top: 10px; } .mt-12 { margin-top: 12px; }
-.mb-8 { margin-bottom: 8px; } .mb-10 { margin-bottom: 10px; }
 .hide { display: none !important; }
 /* blurred for a static screenshot, sharpens on hover so it stays readable live */
 .obf { filter: blur(6px); transition: filter 120ms var(--ease); }
@@ -592,7 +593,7 @@ td.col-id, .table-wrap.wrap-cells td.col-id {
 }
 /* these used to be fixed widths and squashed header labels and the role chip;
    now they are floors only, so table-layout: auto can grow a column to fit content */
-.col-70 { min-width: 70px; width: auto; } .col-80 { min-width: 80px; width: auto; } .col-90 { min-width: 90px; width: auto; }
+.col-80 { min-width: 80px; width: auto; }
 .col-110 { min-width: 110px; width: auto; } .col-130 { min-width: 130px; width: auto; } .col-150 { min-width: 150px; width: auto; }
 
 /* .wrap-cells opt-in: trades a wider row height for no horizontal scrolling */
@@ -734,9 +735,6 @@ td { position: relative; }
 /* ---- messages / callouts -------------------------------------------------- */
 .msg { font-size: var(--t-meta); margin-top: var(--s-2); min-height: 16px; }
 .ok { color: var(--md-success); } .err { color: var(--md-error); }
-.stat { display: inline-block; margin-right: 18px; font-size: var(--t-meta); color: var(--md-on-surface-variant); }
-.stat b { color: var(--md-on-surface); font-weight: 700; }
-.eta { font-size: var(--t-meta); color: var(--md-warning); margin-top: var(--s-2); }
 .warn {
   background: var(--md-warning-container); color: var(--md-on-warning-container);
   border-radius: var(--r-md); padding: 14px 16px; font-size: var(--t-body); line-height: 1.55;
@@ -1042,6 +1040,14 @@ td { position: relative; }
 /* Unsaved roster members are people who never chose to be on a list, so the
    control that would include them says so before it is ticked. */
 .exp-group label.sensitive { color: var(--md-on-surface); }
+/* Distinct from .sensitive: that warns you before opting in, this explains why
+   a box cannot be opted out of. */
+.required-tag {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--md-on-surface-variant);
+  background: var(--md-surface-container-highest);
+  border-radius: var(--r-compact); padding: 1px 6px; margin-left: 2px;
+}
 .sensitive-tag {
   font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
   color: var(--md-warning);
@@ -1116,7 +1122,6 @@ td { position: relative; }
   background: var(--md-surface-container);
 }
 .srvcard h3 { margin: 0 0 6px; font-family: var(--font-display); font-size: var(--t-lead); font-weight: 700; }
-.chiplist { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .chip { background: var(--md-surface-container-highest); border-radius: var(--r-compact); padding: 4px 10px; font-size: var(--t-meta); }
 .chip.w { background: var(--md-primary-container); color: var(--md-on-primary-container); font-weight: 600; }
 /* Archive/monitor chips link to the player's RCON profile, but a chip is a data
@@ -1168,7 +1173,6 @@ a.roster-name:focus-visible { outline-offset: -2px; }
 .srv-main { flex: 1; min-width: 0; }
 .srv-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .srv-title { font-family: var(--font-display); font-size: var(--t-lead); font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
-.srv-sub { font-size: var(--t-meta); color: var(--md-on-surface-variant); }
 .srv-facts { margin-top: 3px; font-size: var(--t-meta); color: var(--md-on-surface-variant); }
 .srv-facts .sep { opacity: 0.5; margin: 0 6px; }
 .srv-facts .live-count { color: var(--md-on-surface); font-weight: 600; font-variant-numeric: tabular-nums; }

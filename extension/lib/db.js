@@ -1026,15 +1026,98 @@ export const db = {
     });
   },
 
+  /* Restore a full backup, replacing everything.
+
+     This used to clear every store and then write whatever the file happened to
+     contain. Handing it a shared people list, or any unrelated JSON, therefore
+     emptied the database and put nothing back - the one operation people reach
+     for precisely when they cannot afford to lose anything. It now refuses
+     anything that is not recognisably a backup, and it only clears a store it is
+     actually going to refill.
+
+     Still destructive by design: a restore replaces. The caller is responsible
+     for confirming that with the user first. */
   async importAll(json) {
     const data = json || {};
+    const present = STORE_NAMES.filter((name) => Array.isArray(data[name]));
+    if (!present.length) {
+      throw new Error("That file is not a BMFinder backup, so nothing was changed.");
+    }
     return tx(STORE_NAMES, "readwrite", async (t) => {
-      for (const name of STORE_NAMES) {
+      for (const name of present) {
         const store = t.objectStore(name);
         await reqp(store.clear());
-        const rows = Array.isArray(data[name]) ? data[name] : [];
-        for (const row of rows) store.put(row);
+        for (const row of data[name]) store.put(row);
       }
+      return { restored: present, counts: Object.fromEntries(present.map((n) => [n, data[n].length])) };
     });
+  },
+
+  /* Import only the parts of a backup the user ticked.
+
+     `stores` is the resolved store list for those parts (see transfer.js), and
+     anything outside it is ignored entirely - a file can hold a full backup and
+     still contribute only its saved people if that is all that was asked for.
+
+     mode "replace" clears each store first, so the ticked areas end up exactly
+     as the file has them. mode "merge" adds only rows whose key is not already
+     present, which makes what is already here authoritative: importing a friend's
+     backup can add people you do not have without touching anyone you do. */
+  async importSelective(json, stores, mode = "merge") {
+    const data = json || {};
+    const usable = (stores || []).filter((s) => STORE_NAMES.includes(s) && Array.isArray(data[s]));
+    if (!usable.length) {
+      throw new Error("Nothing in that file matched what you asked to import.");
+    }
+    return tx(usable, "readwrite", async (t) => {
+      const counts = {};
+      for (const name of usable) {
+        const store = t.objectStore(name);
+        if (mode === "replace") {
+          await reqp(store.clear());
+          for (const row of data[name]) store.put(row);
+          counts[name] = data[name].length;
+          continue;
+        }
+        /* Merge. An out-of-line key store (snapshots, presence) has no key to
+           compare, so its rows are appended - they are observations, and two
+           observations of the same moment are not a conflict worth solving. */
+        let added = 0;
+        for (const row of data[name]) {
+          if (!store.keyPath) { store.add(row); added++; continue; }
+          const key = Array.isArray(store.keyPath)
+            ? store.keyPath.map((k) => row[k])
+            : row[store.keyPath];
+          if (key === undefined || (Array.isArray(key) && key.some((k) => k === undefined))) continue;
+          const existing = await reqp(store.get(key));
+          if (existing === undefined) { store.put(row); added++; }
+        }
+        counts[name] = added;
+      }
+      return { mode, stores: usable, counts };
+    });
+  },
+
+  /* Merge people in from a shared list or CSV, rather than replacing anything.
+     The entries have already been reconciled against what is saved (see
+     lib/transfer.js), so this only writes them. addWatch writes only the fields
+     each entry carries, which is what keeps an existing label intact. */
+  async importPeople(entries) {
+    let added = 0, updated = 0;
+    for (const entry of entries || []) {
+      const existing = await tx(["watched"], "readonly", async (t) =>
+        reqp(t.objectStore("watched").get(String(entry.playerId))));
+
+      /* Tags are not one of addWatch's fields - they are held on the row but
+         written through setPlayerTags, and addWatch drops anything outside
+         nickname/role/note. Passing them to addWatch silently lost them, so
+         they are applied separately here. */
+      const { tags, ...fields } = entry;
+      await this.addWatch(fields);
+      if (tags) await this.setPlayerTags(entry.playerId, tags);
+
+      if (existing) updated++; else added++;
+    }
+    return { added, updated };
   },
 };

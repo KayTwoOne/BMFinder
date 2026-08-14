@@ -1,9 +1,10 @@
 {
   "manifest_version": 3,
   "name": "BMFinder",
-  "version": "1.0.0",
-  "description": "Track BattleMetrics players and servers from pages you visit.",
-  "permissions": ["storage", "tabs", "unlimitedStorage", "bookmarks", "alarms"],
+  "version": "2.0.0",
+  "description": "See when the players you follow are online on the game servers you track.",
+  "permissions": ["storage", "tabs", "alarms"],
+  "optional_permissions": ["bookmarks"],
   "host_permissions": ["https://www.battlemetrics.com/*"],
   "background": {
     "service_worker": "background/worker.js",

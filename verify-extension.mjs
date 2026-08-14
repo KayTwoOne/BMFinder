@@ -219,10 +219,18 @@ softMissing.length ? fail(`referenced but absent from markup: ${softMissing.join
    wrong line would hand that away silently, so the defaults are asserted against
    the audit's list rather than trusted. */
 {
+  /* The audit had playerId and serverId default OFF. They are now required and
+     locked ON, because they are the keys an import matches on — a file without
+     them restores nobody, which made "export my list and put it back" silently
+     impossible. The privacy intent is preserved by the compensating control
+     asserted below: both still trigger the export warning and the unticked
+     acknowledgement, so an identifier still cannot leave without a deliberate
+     act. Everything else keeps the audit's default. */
+  const REQUIRED = ["playerId", "serverId"];
   const WANT = {
     label: true, currentName: true, relationship: true, tags: true,
-    playerId: false, lastServer: false, lastSeen: false,
-    serverName: true, serverLink: true, serverId: false,
+    playerId: true, lastServer: false, lastSeen: false,
+    serverName: true, serverLink: true, serverId: true,
     checks: false, rosterMembers: false, exactTimes: false, activityPlayerIds: false,
   };
   const block = html.slice(html.indexOf('id="exp-fields"'), html.indexOf('id="exp-warn"'));
@@ -254,7 +262,10 @@ softMissing.length ? fail(`referenced but absent from markup: ${softMissing.join
   const share = js.slice(js.indexOf("share: {"), js.indexOf("activity: {"));
   const problems = [];
   if (!/lock:\s*\{\s*rosterMembers:\s*false/.test(share)) problems.push("share does not lock unsaved roster members off");
-  for (const f of ["playerId", "activityPlayerIds", "exactTimes", "checks"]) {
+  /* playerId and serverId are required everywhere now, so carrying them is no
+     longer a share defect. What must still hold is that a share never carries
+     activity history, exact timestamps, or the people who were never saved. */
+  for (const f of ["activityPlayerIds", "exactTimes", "checks"]) {
     if (new RegExp(`${f}:\\s*1`).test(share)) problems.push(`share enables ${f}`);
   }
   const warn = (js.match(/EXPORT_WARN_FIELDS = \[([^\]]+)\]/) || [])[1] || "";
@@ -263,6 +274,52 @@ softMissing.length ? fail(`referenced but absent from markup: ${softMissing.join
   }
   problems.length ? fail(`export sharing safety: ${problems.join("; ")}`)
                   : okay("the share preset carries no identifiers, and every sensitive field warns");
+}
+
+/* 7e. The content script may only send the messages it actually needs.
+
+   It runs in an isolated world, so a compromised battlemetrics page cannot
+   reach chrome.runtime directly — but the origin check is what stops the site's
+   own origin from being able to invoke DELETE_ALL_DATA, and a future edit to
+   reader.js must not be able to widen that silently. */
+{
+  const reader = read("content/reader.js");
+  const problems = [];
+  if (!/CONTENT_SCRIPT_MESSAGES\s*=\s*new Set\(/.test(worker)) {
+    problems.push("the content-script message allowlist is gone");
+  }
+  if (!/senderAllowed\(sender,\s*msg\.type\)/.test(worker)) {
+    problems.push("senderAllowed is no longer given the message type");
+  }
+  // Anything reader.js sends must appear in the allowlist.
+  const allow = (worker.match(/CONTENT_SCRIPT_MESSAGES\s*=\s*new Set\(\[([^\]]*)\]/) || [])[1] || "";
+  for (const m of reader.matchAll(/type:\s*["']([A-Z_]+)["']/g)) {
+    if (!allow.includes(m[1])) problems.push(`reader.js sends ${m[1]}, which the allowlist omits`);
+  }
+  /* A page-level `message` listener would let a compromised battlemetrics page
+     launder a request through the content script and defeat the isolation the
+     allowlist relies on. */
+  if (/addEventListener\(\s*["']message["']/.test(reader)) {
+    problems.push("reader.js listens for page messages, which bypasses world isolation");
+  }
+  problems.length ? fail(`content-script trust boundary: ${problems.join("; ")}`)
+                  : okay("the content script may send only the messages it needs");
+}
+
+/* 7f. Nothing inline. The extension CSP forbids inline script and event
+      handlers outright, so these would fail at load rather than degrade. */
+{
+  const pages = ["dashboard/dashboard.html", "popup/popup.html",
+    "pages/welcome.html", "pages/about.html", "pages/policy.html"];
+  const problems = [];
+  for (const p of pages) {
+    const src = read(p);
+    for (const m of src.matchAll(/\son[a-z]+="/g)) problems.push(`${p} has an inline ${m[0].trim()} handler`);
+    for (const m of src.matchAll(/<script(?![^>]*\bsrc=)[^>]*>/g)) problems.push(`${p} has an inline <script>`);
+    if (/javascript:/i.test(src)) problems.push(`${p} contains a javascript: URL`);
+  }
+  problems.length ? fail(`inline code: ${problems.join("; ")}`)
+                  : okay(`no inline script, handlers or javascript: URLs in ${pages.length} pages`);
 }
 
 // 8. No network call may reach anything but BattleMetrics. No analytics, no CDN.

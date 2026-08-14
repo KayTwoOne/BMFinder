@@ -12,6 +12,10 @@ import { applyTheme, resolveMode, SEEDS, seedSwatch } from '../lib/theme.js';
 import {
   RELATIONSHIPS, RELATIONSHIP_LABEL, RELATIONSHIP_SHORT, RELATIONSHIP_HINT, toRelationship,
 } from '../lib/relationships.js';
+import {
+  detectFormat, validateBackup, planPeopleImport, planServerImport, parseCsv,
+  IMPORT_PARTS, summariseBackup,
+} from '../lib/transfer.js';
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
@@ -669,7 +673,8 @@ function openTagPicker(anchor, playerId) {
   box.innerHTML = tagList.map((t) => `<label class="checkbox-label">
     <input type="checkbox" class="chk" data-tagpick="${esc(t.name)}"${have.has(t.name) ? ' checked' : ''}>
     <span class="tag-chip" style="--tag:${esc(tagColour(t.name))}">${esc(t.name)}</span></label>`).join('');
-  anchor.closest('td').appendChild(box);
+  const host = anchor.closest('td') || anchor.closest('.ptile-acts') || anchor.parentElement;
+  host.appendChild(box);
   box.addEventListener('change', async (ev) => {
     const cb = ev.target.closest('[data-tagpick]');
     if (!cb) return;
@@ -687,10 +692,10 @@ function openTagPicker(anchor, playerId) {
 }
 
 async function afterImport(r) {
-  if (r.error) { setMsg('#imp-msg', r.error, 'err'); return; }
+  if (r.error) { setMsg('#impd-msg', r.error, 'err'); return; }
   const parts = [`Imported ${r.added}`];
   if (r.skipped) parts.push(`${r.skipped} already tracked`);
-  setMsg('#imp-msg', parts.join(', ') + '. Use "Refresh player details" to fetch their current names and last seen.', 'ok');
+  setMsg('#impd-msg', parts.join(', ') + '. Use "Refresh player details" to fetch their current names and last seen.', 'ok');
   renderWatch(r.watch || []);
   await refreshState();
   if (r.added) {
@@ -723,12 +728,12 @@ async function ensureBookmarksPermission() {
 
 on('#imp-bookmarks', 'click', async () => {
   if (!(await ensureBookmarksPermission())) {
-    setMsg('#imp-msg', 'Bookmark access was declined. You can still import from a bookmarks file.', 'err');
+    setMsg('#impd-msg', 'Bookmark access was declined. You can still import from a bookmarks file.', 'err');
     return;
   }
-  setMsg('#imp-msg', 'Scanning your bookmarks...', '');
+  setMsg('#impd-msg', 'Scanning your bookmarks...', '');
   const r = await send({ type: 'IMPORT_BOOKMARKS', role: $('#imp-role').value });
-  if (!r.error && !r.found) { setMsg('#imp-msg', 'No BattleMetrics player bookmarks found.', ''); return; }
+  if (!r.error && !r.found) { setMsg('#impd-msg', 'No BattleMetrics player bookmarks found.', ''); return; }
   await afterImport(r);
 });
 
@@ -739,10 +744,10 @@ on('#imp-fileinput', 'change', async () => {
   const file = input.files[0];
   input.value = '';
   if (!file) return;
-  setMsg('#imp-msg', 'Reading file...', '');
+  setMsg('#impd-msg', 'Reading file...', '');
   let text;
   try { text = await file.text(); }
-  catch (err) { setMsg('#imp-msg', 'Could not read that file: ' + ((err && err.message) || err), 'err'); return; }
+  catch (err) { setMsg('#impd-msg', 'Could not read that file: ' + ((err && err.message) || err), 'err'); return; }
 
   // Parse the exported bookmarks HTML with DOMParser so entities and structure
   // are handled for us; pull out unique BattleMetrics player links.
@@ -755,7 +760,7 @@ on('#imp-fileinput', 'change', async () => {
     seen.add(m[1]);
     entries.push({ playerId: m[1], nickname: (a.textContent || '').trim() });
   }
-  if (!entries.length) { setMsg('#imp-msg', 'No BattleMetrics player links found in that file.', ''); return; }
+  if (!entries.length) { setMsg('#impd-msg', 'No BattleMetrics player links found in that file.', ''); return; }
   const r = await send({ type: 'ADD_WATCH_BATCH', entries, role: $('#imp-role').value });
   await afterImport(r);
 });
@@ -796,15 +801,34 @@ const EXPORT_PURPOSES = {
      must not leave the device inside a list about friendship. */
   share: {
     format: 'list',
-    fields: { label: 1, currentName: 1, relationship: 1, tags: 1, serverName: 1, serverLink: 1 },
+    fields: { label: 1, currentName: 1, relationship: 1, tags: 1, serverName: 1, serverLink: 1,
+      playerId: 1, serverId: 1 },
     lock: { rosterMembers: false },
   },
   activity: {
     format: 'csv',
-    fields: { checks: 1, serverName: 1, serverLink: 1, label: 1, currentName: 1 },
+    fields: { checks: 1, serverName: 1, serverLink: 1, label: 1, currentName: 1,
+      playerId: 1, serverId: 1 },
   },
   custom: null, // leaves whatever is ticked alone
 };
+
+/* Identifiers are not optional. Both are the keys an import matches on - a
+   person by player ID, a followed server by server ID - so a file without them
+   restores nothing and is a broken export rather than a private one. They stay
+   ticked, disabled, and are re-asserted after every purpose and format change so
+   no preset can quietly clear them. */
+const REQUIRED_EXPORT_FIELDS = ['playerId', 'serverId'];
+
+function expLockRequiredIds() {
+  for (const key of REQUIRED_EXPORT_FIELDS) {
+    const box = $(`#exp-fields input[data-f="${key}"]`);
+    if (!box) continue;
+    box.checked = true;
+    box.disabled = true;
+    box.closest('label').classList.add('locked');
+  }
+}
 
 let exportScope = null;
 
@@ -844,9 +868,11 @@ function expSyncFormat() {
   const whole = fmt === 'backup';
   $('#exp-fields').classList.toggle('disabled', whole);
   for (const i of expFieldInputs()) i.disabled = whole;
-  const note = $('#exp-msg');
-  if (whole) setMsg('#exp-msg', 'A full backup always contains everything, so field choices do not apply to it.', '');
-  else if (note && note.textContent.startsWith('A full backup')) setMsg('#exp-msg', '', '');
+
+  if (!whole) expLockRequiredIds();
+  setMsg('#exp-msg', whole
+    ? 'A full backup always contains everything, so field choices do not apply to it.'
+    : 'Player and server IDs are always included: they are what an import matches on.', '');
 }
 
 function expApplyPurpose(name) {
@@ -862,6 +888,7 @@ function expApplyPurpose(name) {
   const fmt = $(`#exp-format input[value="${p.format}"]`);
   if (fmt) fmt.checked = true;
   expSyncFormat();
+  expLockRequiredIds();
   expSyncWarning();
 }
 
@@ -959,20 +986,37 @@ async function runExport() {
         exportedAt: f.exactTimes ? new Date().toISOString() : stamp,
         fields: Object.keys(f).filter((k) => f[k]),
         people: people.map((w) => {
-          const o = {};
+          const o = { playerId: String(w.playerId) };
           if (f.label) o.label = w.nickname || '';
           if (f.currentName) o.currentName = w.currentName || '';
           if (f.relationship) o.relationship = toRelationship(w.role);
           if (f.tags) o.tags = w.tags || [];
-          if (f.playerId) o.playerId = String(w.playerId);
+          if (f.note && w.note) o.note = w.note;
           if (f.lastServer) o.lastObservedServer = w.lastServerName || '';
           if (f.lastSeen) o.lastObservedAt = fmtTime(w.lastServerSeen || w.lastSeen, f);
+          return o;
+        }),
+        /* Followed servers travel with the list.
+
+           They did not, which meant re-importing your own list restored the
+           people and left you following nothing — the server ID was an export
+           field that no import path read. Carrying them makes the id
+           load-bearing, and makes a list a complete picture of a setup rather
+           than half of one. */
+        servers: (state.servers || []).map((s) => {
+          const o = { serverId: String(s.serverId) };
+          if (f.serverName) o.name = s.nickname || s.name || '';
+          if (s.game) o.game = s.game;
+          if (f.serverLink && s.serverId) {
+            o.link = `https://www.battlemetrics.com/servers/${s.game || 'arma3'}/${s.serverId}`;
+          }
           return o;
         }),
       };
       downloadBlob(`bmfinder-list-${stamp}.json`, JSON.stringify(payload, null, 2), 'application/json');
       closeExportDialog();
-      toast(`Exported ${payload.people.length} ${payload.people.length === 1 ? 'person' : 'people'}.`, { tone: 'ok' });
+      toast(`Exported ${payload.people.length} ${payload.people.length === 1 ? 'person' : 'people'}`
+        + ` and ${payload.servers.length} ${payload.servers.length === 1 ? 'server' : 'servers'}.`, { tone: 'ok' });
       return;
     }
 
@@ -1021,19 +1065,12 @@ async function runExport() {
   }
 }
 
-on('#w-export', 'click', () => openExportDialog({
-  purpose: 'share',
-  filename: 'bmfinder-saved-people',
-  people: () => sortedWatch(filteredWatch(watchData)),
-  describe: () => {
-    const n = filteredWatch(watchData).length, all = watchData.length;
-    return n === all
-      ? `Exporting all ${all} saved ${all === 1 ? 'person' : 'people'}.`
-      : `Exporting the ${n} saved ${n === 1 ? 'person' : 'people'} matching your current filter, of ${all}.`;
-  },
-}));
-
 /* ---- watchlist state ---------------------------------------------------- */
+/* The floor the picker offers, in one place so the clamp and the markup cannot
+   drift apart. Faster than this produces more traffic than a person browsing
+   does, which is the line this extension stays on the right side of. */
+const MIN_INTERVAL_SEC = 300;
+
 let watchSort = { key: null, dir: 1 };  // dir 1 asc, -1 desc
 const watchSel = new Set();             // player ids ticked for a bulk role change
 let tagList = [];                       // [{name, colour}] catalogue
@@ -1613,6 +1650,11 @@ function openRowMenu(trigger, playerId) {
   openMenu = { el: menu, trigger };
   positionRowMenu();
 
+  menu.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('[data-act]');
+    if (btn) runRowAction(btn.dataset.act, btn.dataset.pid, btn);
+  });
+
   const items = () => [...menu.querySelectorAll('button')];
   items()[0].focus();
   menu.addEventListener('keydown', (ev) => {
@@ -1640,10 +1682,20 @@ async function runRowAction(act, playerId, trigger) {
     }
     return;
   }
-  if (act === 'tags') { if (trigger) openTagPicker(trigger, playerId); return; }
+  if (act === 'tags') {
+    const anchor = tr
+      ? tr.querySelector('[data-menu]')
+      : document.querySelector(`.ptile[data-pid="${CSS.escape(String(playerId))}"] [data-menu]`);
+    if (anchor) openTagPicker(anchor, playerId);
+    return;
+  }
   if (act === 'names') {
-    const btn = tr && tr.querySelector('[data-expand]');
-    if (btn && !btn.classList.contains('open')) toggleHistory(btn);
+    if (tr) {
+      const btn = tr.querySelector('[data-expand]');
+      if (btn) toggleHistory(btn);
+    } else {
+      await openPlayerSheet(playerId);
+    }
     return;
   }
   // The detail sheet already has a proper note editor, so this opens that rather
@@ -2659,7 +2711,7 @@ async function explainLiveUpdates() {
 on('#mon-toggle', 'click', async () => {
   if (pollState === 'stopped') {
     if (!(await explainLiveUpdates())) return;
-    const intervalSec = Math.max(60, Number($('#mon-interval').value) || 300);
+    const intervalSec = Math.max(MIN_INTERVAL_SEC, Number($('#mon-interval').value) || MIN_INTERVAL_SEC);
     const m = await setMonitorMode({ mode: 'running', intervalSec });
     if (!m) return;
     updateMonStatus();
@@ -2691,7 +2743,7 @@ on('#mon-stop', 'click', async () => {
 /* Changing the interval while running has to re-arm the alarm, or the picker
    would silently disagree with the schedule actually in force. */
 on('#mon-interval', 'change', async () => {
-  const intervalSec = Math.max(60, Number($('#mon-interval').value) || 300);
+  const intervalSec = Math.max(MIN_INTERVAL_SEC, Number($('#mon-interval').value) || MIN_INTERVAL_SEC);
   if (pollState === 'stopped') { pollIntervalSec = intervalSec; updateMonStatus(); return; }
   await setMonitorMode({ intervalSec });
   updateMonStatus();
@@ -2765,8 +2817,8 @@ async function loadOnline() {
       : `<span class="live-count">${esc(srv.players)}</span> online` +
         `<span class="sep">&middot;</span>` +
         (watched.length
-          ? `<span class="has-watched">${esc(watched.length)} watched player${watched.length === 1 ? '' : 's'} here</span>`
-          : 'No watched players detected');
+          ? `<span class="has-watched">${esc(watched.length)} saved ${watched.length === 1 ? 'person' : 'people'} here</span>`
+          : 'No saved people detected');
 
     const when = everPolled
       ? `<span class="srv-when" title="${esc(fdt(srv.pollTs))}">Updated ${esc(frelLong(srv.pollTs))}</span>`
@@ -2939,40 +2991,13 @@ $('#arch-export').addEventListener('click', () => {
   });
 });
 
-/* ---- backup ----------------------------------------------------------------
-   dashboard.html has no dedicated message element next to the backup
-   buttons, so one is created on first use rather than editing the markup. */
-
-function ensureBackupMsgEl() {
-  let el = document.getElementById('backup-msg');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'backup-msg';
-    el.className = 'msg';
-    $('#file-import').insertAdjacentElement('afterend', el);
-  }
-  return el;
-}
-
-/* Shared by the Monitor tab's backup button and the Data and privacy panel's
-   "Export a backup" button - same download, reported into whichever message
-   element the caller is standing next to. */
-
-$('#btn-export').addEventListener('click', () => openExportDialog({
-  purpose: 'backup',
-  people: () => watchData,
-  describe: () => 'Exporting everything stored in this browser profile.',
-}));
-
-$('#btn-import').addEventListener('click', () => $('#file-import').click());
-
 $('#file-import').addEventListener('change', async () => {
   const input = $('#file-import');
   const file = input.files[0];
   input.value = '';
   if (!file) return;
 
-  const box = ensureBackupMsgEl();
+  const box = '#priv-importmsg';
   setMsg(box, 'Reading file...', '');
 
   let text;
@@ -2983,25 +3008,223 @@ $('#file-import').addEventListener('change', async () => {
     return;
   }
 
+  /* Three things can arrive here: a full backup, a shared people list, and a
+     CSV. They are told apart by their contents rather than their filename, and
+     each takes a different path - a backup replaces everything, a list merges.
+     Getting that wrong is how the old importer could empty the database. */
+  const isCsv = /\.csv$/i.test(file.name) || (!text.trimStart().startsWith('{') && text.includes(','));
+
+  if (isCsv) {
+    const { records } = parseCsv(text);
+    await importPeopleFile(records, box, `${file.name}`);
+    return;
+  }
+
   let json;
   try {
     json = JSON.parse(text);
   } catch (err) {
-    setMsg(box, 'That file is not valid JSON: ' + ((err && err.message) || err), 'err');
+    setMsg(box, 'That file is not valid JSON or CSV: ' + ((err && err.message) || err), 'err');
     return;
   }
 
-  const r = await send({ type: 'IMPORT', json });
+  const kind = detectFormat(json);
+
+  if (kind === 'list') {
+    await importPeopleFile(json.people, box, file.name, json.servers);
+    return;
+  }
+
+  if (kind === 'backup') {
+    const check = validateBackup(json);
+    if (!check.ok) {
+      setMsg(box, 'That backup is damaged: ' + check.problems.join(' '), 'err');
+      return;
+    }
+    openImportDialog(json, file.name);
+    return;
+  }
+
+  setMsg(box, 'That file is not a BMFinder backup or people list, so nothing was changed.', 'err');
+});
+
+/* The merge path, shared by BMFinder lists and CSV.
+
+   The plan is computed and shown before anything is written: how many are new,
+   how many already saved, which labels disagree, and which rows could not be
+   read. Overwriting a label you wrote by hand is the only irreversible part, so
+   it is opt-in and names the people affected. */
+async function importPeopleFile(records, box, filename, servers) {
+  const plan = planPeopleImport(records, state.watch || [], { defaultRelationship: 'other' });
+  const serverPlan = planServerImport(servers, state.servers || []);
+
+  if (!plan.add.length && !plan.update.length) {
+    const why = plan.errors.length
+      ? ` None of the ${plan.total} rows could be read: ${plan.errors[0]}`
+      : '';
+    setMsg(box, `Nothing to import from ${filename}.${why}`, 'err');
+    return;
+  }
+
+  const parts = [];
+  if (plan.add.length) parts.push(`${plan.add.length} new`);
+  if (plan.update.length) parts.push(`${plan.update.length} already saved`);
+  let body = `${filename} holds ${plan.total} ${plan.total === 1 ? 'person' : 'people'}: ${parts.join(', ')}. `
+    + 'New people are added; people you already have keep their own label unless you choose otherwise.';
+  if (plan.errors.length) {
+    body += ` ${plan.errors.length} ${plan.errors.length === 1 ? 'row' : 'rows'} could not be read and will be skipped.`;
+  }
+  if (plan.labelConflicts.length) {
+    const sample = plan.labelConflicts.slice(0, 3)
+      .map((c) => `"${c.current}" would become "${c.incoming}"`).join('; ');
+    body += ` ${plan.labelConflicts.length} of your labels differ from the file (${sample}${plan.labelConflicts.length > 3 ? '; and more' : ''}).`;
+  }
+
+  const ok = await askConfirm({
+    heading: 'Import these people?',
+    body,
+    confirmLabel: plan.labelConflicts.length ? 'Import, keeping my labels' : 'Import',
+    cancelLabel: 'Cancel',
+    danger: false,
+  });
+  if (!ok) { setMsg(box, 'Import cancelled. Nothing was changed.', ''); return; }
+
+  const r = await send({ type: 'IMPORT_PEOPLE', plan, serverPlan, overwriteLabels: false });
   if (r.error) { setMsg(box, 'Import failed: ' + r.error, 'err'); return; }
 
-  setMsg(box, 'Import complete.', 'ok');
-  toast('Backup imported.', { tone: 'ok' });
+  const msg = `Imported ${r.added} new, updated ${r.updated}.`
+    + (serverPlan.add.length ? ` ${serverPlan.add.length} servers followed.` : '')
+    + (plan.errors.length ? ` ${plan.errors.length} skipped.` : '');
+  setMsg(box, msg, 'ok');
+  toast(msg, { tone: 'ok' });
+  await afterImportRefresh();
+}
+
+/* ---- selective import ------------------------------------------------------
+
+   The mirror of the export dialog. A backup is read first, then the user picks
+   which parts of it to take. Anything unticked is never written - importing a
+   friend's backup for its people list does not drag their server checks along
+   with it.
+
+   Merge is the default because it cannot lose anything: it only adds rows whose
+   key is absent. Replace is the destructive option and says so, behind an
+   acknowledgement that names what will go. */
+let importFile = null;
+
+function impParts() {
+  return [...$$('#impd-parts input[data-p]')].filter((i) => i.checked).map((i) => i.dataset.p);
+}
+function impMode() {
+  return ($('#impd-mode input:checked') || {}).value || 'merge';
+}
+
+function impSyncWarning() {
+  const replacing = impMode() === 'replace';
+  const parts = impParts();
+  const box = $('#impd-warn');
+  box.classList.toggle('hide', !replacing || !parts.length);
+  $('#impd-ack').checked = false;
+
+  if (replacing && parts.length) {
+    const names = parts.map((p) => (IMPORT_PARTS[p] || {}).label || p);
+    // Say what is actually at stake, using what is here now rather than a
+    // generic warning about data.
+    const held = [];
+    if (parts.includes('people') && (state.watch || []).length) held.push(`${state.watch.length} saved people`);
+    if (parts.includes('servers') && (state.servers || []).length) held.push(`${state.servers.length} followed servers`);
+    $('#impd-warn-body').textContent =
+      `${names.join(', ')} will be cleared and replaced with what the file holds`
+      + (held.length ? `. You currently have ${held.join(' and ')}, and anything not in the file will be gone` : '')
+      + '.';
+  }
+  impSyncGo();
+}
+
+function impSyncGo() {
+  const needAck = !$('#impd-warn').classList.contains('hide');
+  $('#impd-go').disabled = !impParts().length || (needAck && !$('#impd-ack').checked);
+}
+
+function openImportDialog(json, filename) {
+  importFile = json;
+  const summary = summariseBackup(json);
+  $('#impd-scope').textContent = `${filename} — tick what you want to bring in. Anything you leave `
+    + 'unticked is ignored.';
+
+  for (const [key, info] of Object.entries(summary)) {
+    const box = $(`#impd-parts input[data-p="${key}"]`);
+    const note = $(`#impd-count-${key}`);
+    if (note) {
+      note.textContent = info.present
+        ? `${info.count} in this file`
+        : 'not in this file';
+    }
+    if (box) {
+      // Nothing to import means nothing to tick.
+      box.disabled = !info.present || info.count === 0;
+      if (box.disabled) box.checked = false;
+      box.closest('label').classList.toggle('locked', box.disabled);
+    }
+  }
+
+  setMsg('#impd-msg', '', '');
+  impSyncWarning();
+  $('#impd-scrim').classList.remove('hide');
+  $('#impd-dialog').classList.remove('hide');
+  $('#impd-go').focus();
+}
+
+function closeImportDialog() {
+  $('#impd-scrim').classList.add('hide');
+  $('#impd-dialog').classList.add('hide');
+  importFile = null;
+}
+
+on('#impd-parts', 'change', impSyncWarning);
+on('#impd-mode', 'change', impSyncWarning);
+on('#impd-ack', 'change', impSyncGo);
+on('#impd-cancel', 'click', () => {
+  closeImportDialog();
+  setMsg('#priv-importmsg', 'Import cancelled. Nothing was changed.', '');
+});
+on('#impd-scrim', 'click', () => {
+  closeImportDialog();
+  setMsg('#priv-importmsg', 'Import cancelled. Nothing was changed.', '');
+});
+
+on('#impd-go', 'click', async () => {
+  if (!importFile) return;
+  const parts = impParts();
+  const mode = impMode();
+  if (!parts.length) return;
+
+  setMsg('#impd-msg', 'Importing…', '');
+  const r = await send({ type: 'IMPORT_PARTS', json: importFile, parts, mode });
+  if (r.error) { setMsg('#impd-msg', 'Import failed: ' + r.error, 'err'); return; }
+
+  const counts = (r.result && r.result.counts) || {};
+  const written = Object.values(counts).reduce((a, b) => a + b, 0);
+  const msg = mode === 'replace'
+    ? `Replaced ${parts.length} ${parts.length === 1 ? 'area' : 'areas'} with ${written} records.`
+    : `Added ${written} new ${written === 1 ? 'record' : 'records'}. Nothing existing was changed.`;
+
+  closeImportDialog();
+  setMsg('#priv-importmsg', msg, 'ok');
+  toast(msg, { tone: 'ok' });
+  await afterImportRefresh();
+  await loadPrivacyPanel();
+});
+
+on('#priv-import', 'click', () => $('#file-import').click());
+
+async function afterImportRefresh() {
   await refreshState();
   renderWatch(state.watch || []);
   renderServers(state.servers || []);
   updateMonStatus();
   await loadOnline();
-});
+}
 
 /* ============================ DATA AND PRIVACY ============================= */
 
@@ -3098,7 +3321,7 @@ on('#priv-removepeople', 'click', async () => {
   const ok = await askConfirm({
     heading: 'Remove all saved people?',
     body: `Removes all ${ids.length} saved ${ids.length === 1 ? 'person' : 'people'} from your ` +
-      `watchlist, including their label, note, tag assignments and recorded name history. ` +
+      `saved people list, including their label, note, tag assignments and recorded name history. ` +
       `Observations already recorded on your followed servers are not removed by this - they stay ` +
       `until retention prunes them or you clear recent activity. You can undo the removal itself ` +
       `immediately afterwards.`,
