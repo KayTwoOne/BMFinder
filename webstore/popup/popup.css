@@ -1,0 +1,96 @@
+/* BMFinder popup, Material 3 Expressive. Shares the token model with the
+   dashboard; lib/theme.js sets --md-* on :root and popup.js reads the same saved
+   appearance so the popup always matches the dashboard. The values here are only
+   the pre-paint dark-violet fallback.
+
+   The faces are redeclared here because @font-face does not cross documents: the
+   popup is its own page, so it needs its own declarations to match the dashboard.
+   Latin only, since the popup shows counts and short labels rather than player
+   names. Bundled rather than fetched from a CDN so the extension works offline and
+   does not report anything to a third party. */
+@font-face {
+  font-family: "Chakra Petch"; font-style: normal; font-weight: 700; font-display: swap;
+  src: url("../fonts/ChakraPetch-700-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Sans"; font-style: normal; font-weight: 400; font-display: swap;
+  src: url("../fonts/IBMPlexSans-400-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Sans"; font-style: normal; font-weight: 600; font-display: swap;
+  src: url("../fonts/IBMPlexSans-600-latin.woff2") format("woff2");
+}
+
+:root {
+  color-scheme: dark;
+  --md-primary: oklch(0.80 0.13 296); --md-on-primary: oklch(0.28 0.13 296);
+  --md-primary-container: oklch(0.42 0.12 296); --md-on-primary-container: oklch(0.92 0.075 296);
+  --md-secondary: oklch(0.78 0.053 296); --md-on-secondary: oklch(0.30 0.075 296);
+  --md-secondary-container: oklch(0.40 0.053 296); --md-on-secondary-container: oklch(0.92 0.045 296);
+  --md-surface: oklch(0.17 0.021 296);
+  --md-surface-container-low: oklch(0.20 0.021 296);
+  --md-surface-container: oklch(0.23 0.0225 296);
+  --md-surface-container-high: oklch(0.27 0.024 296);
+  --md-surface-container-highest: oklch(0.32 0.0255 296);
+  --md-on-surface: oklch(0.93 0.012 296); --md-on-surface-variant: oklch(0.78 0.018 296);
+  --md-outline-variant: oklch(0.38 0.018 296);
+  --md-error: oklch(0.78 0.13 27);
+  --md-success: oklch(0.80 0.13 152);
+  --r-sm: 12px; --r-md: 16px; --r-full: 999px;
+  --dur: 160ms; --ease: cubic-bezier(0.2, 0, 0, 1);
+  --state: color-mix(in oklab, var(--md-on-surface) 8%, transparent);
+}
+:root[data-mode="light"] { color-scheme: light; }
+
+* { box-sizing: border-box; }
+
+body {
+  width: 320px; margin: 0;
+  background: var(--md-surface); color: var(--md-on-surface);
+  font: 400 14px/1.5 "IBM Plex Sans", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px 8px;
+}
+header h1 { margin: 0; font-family: "Chakra Petch", system-ui, sans-serif; font-size: 20px; font-weight: 700; letter-spacing: 0.02em; }
+header h1 b, .brand-accent { color: var(--md-primary); }
+.status {
+  margin-left: auto; font-size: 11px; color: var(--md-on-surface-variant);
+  text-align: right; max-width: 170px;
+}
+
+.container { padding: 4px 16px 16px; display: flex; flex-direction: column; gap: 12px; }
+
+.context {
+  font-size: 13px; color: var(--md-on-surface);
+  background: var(--md-surface-container); border-radius: var(--r-md);
+  padding: 12px 14px; font-weight: 600;
+}
+
+.btn {
+  width: 100%; font: inherit; font-weight: 600; font-size: 14px; cursor: pointer;
+  border: 0; border-radius: var(--r-full); padding: 12px 18px;
+  transition: filter var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.btn:hover { filter: brightness(1.05); }
+.btn:active { filter: brightness(0.95); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; filter: none; }
+.btn-primary { background: var(--md-primary); color: var(--md-on-primary); }
+.btn-secondary { background: var(--md-secondary-container); color: var(--md-on-secondary-container); }
+
+.action-group { margin: 0; }
+.button-row { display: flex; gap: 8px; }
+.button-row .btn { padding: 10px 14px; font-size: 13px; }
+
+.message { font-size: 12.5px; min-height: 16px; color: var(--md-on-surface-variant); }
+.message.ok { color: var(--md-success); }
+.message.err { color: var(--md-error); }
+
+:focus-visible { outline: 2px solid var(--md-primary); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0.001ms !important; }
+}

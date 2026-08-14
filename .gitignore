@@ -11,3 +11,15 @@ Thumbs.db
 *.zip
 *.crx
 *.pem
+
+# Local tool artifacts. bmfinder.db holds saved people and observed rosters,
+# which is exactly the data this tool exists to keep private.
+__pycache__/
+*.pyc
+local/bmfinder.db
+*.sqlite
+*.sqlite3
+
+# Scratch output from the Dieter Rams design audits. The findings that mattered
+# were acted on in the code; the artifacts are working notes, not deliverables.
+DESIGN-IS-*/

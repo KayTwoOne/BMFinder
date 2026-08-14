@@ -1,0 +1,875 @@
+----- page 1 -----
+You are working on the public release of BMFinder, a Chromium Manifest V3 browser extension for
+Brave, Chrome, and Edge.
+Your task is to audit and refine the public build so its language, information architecture, defaults,
+privacy disclosures, exports, and deletion controls accurately communicate its primary purpose:
+BMFinder helps Arma 3 players save, recognise, and reconnect with friends, teammates,
+and familiar community members through BattleMetrics information already visible to
+the user.
+This is an implementation task, not merely a design proposal. Inspect the existing repository,
+understand the current architecture and state flow, make the changes described below, update tests
+and documentation, and report exactly what changed.
+Do not rewrite the extension from scratch. Preserve reliable existing functionality, the Material 3 token
+system, current theme support, IndexedDB architecture, extraction centralisation, and the existing
+deliberate pacing of page navigation.
+1. Product context
+Arma 3 players frequently change their in-game names. The game does not provide a convenient way
+to connect an in-game identity with a Steam friend identity. Adding someone on Steam normally
+requires both people to exchange an exact name or profile link, which can be mistyped or difficult to
+find.
+BMFinder exists primarily to let a user:
+Save friends and familiar players.
+Give them a persistent personal label.
+Recognise them after they change their in-game name.
+See whether they are currently playing.
+See which followed server they were last observed on.
+Find other familiar people they may want to join.
+Maintain a short, private, local history.
+Transfer a deliberately selected list to a trusted friend where appropriate.
+BMFinder is not intended to operate as:
+A public player-intelligence database.
+A stalking or harassment tool.
+A method for bypassing private BattleMetrics profiles.
+An automated accusation or enforcement system.
+A commercial player-data product.
+A way to infer a hidden person’s identity from missing roster entries.
+2. Public-build invariants
+Treat the following as mandatory safety and release requirements.
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+1
+
+----- page 2 -----
+2.1 Features that must not exist in the public build
+The public build must not contain, expose, register, route to, or silently retain:
+Incremental player-ID range scanning.
+Any control that walks consecutive player IDs.
+Absence correlation.
+Admin-versus-player presence correlation.
+Suspicion scoring.
+Behavioural risk scoring.
+Automatic recommendations to investigate, punish, flag, or ban a player.
+A “Suspect” relationship role.
+UI language that claims an unavailable player is a hidden administrator.
+Logic that attempts alternative endpoints specifically to reveal a profile after BattleMetrics
+returns it as private, unavailable, 404, or not found.
+Search the complete public build—not only visible components—for old routes, handlers, strings,
+storage keys, commands, tests, feature flags, CSS, documentation, and dead imports related to these
+capabilities.
+Remove them from the compiled public extension rather than merely hiding buttons with CSS.
+Do not remove anything from a clearly separate private development branch or private edition unless
+the repository structure requires separation to prevent it being bundled publicly. Where necessary,
+create a clean build-time boundary so the public package cannot accidentally include the excluded
+code.
+2.2 Privacy controls must be respected
+BattleMetrics may return a profile as private, unavailable, deleted, inaccessible, or not found.
+When this occurs:
+Stop the lookup normally.
+Do not try to infer the player’s identity.
+Do not label the player as an administrator.
+Do not claim the user has deliberately hidden themselves.
+Do not imply wrongdoing.
+Do not attempt alternate routes intended to defeat the unavailable state.
+Do not expose raw error details that encourage circumvention.
+Use neutral copy:
+Title: “Profile unavailable”
+Body:
+“BattleMetrics is not making this profile available to your current session. It may be private, deleted,
+temporarily unavailable, or inaccessible with your current permissions.”
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+2
+
+----- page 3 -----
+Where an already saved player becomes unavailable, preserve the user’s own local nickname and tags,
+but clearly distinguish them from current BattleMetrics information.
+Display:
+User label: preserved.
+Last successfully observed in-game name: marked as historical.
+Current status: unavailable.
+Last successful refresh time.
+A “Remove saved person” action.
+A “Delete this person’s history” action.
+Do not continuously retry unavailable profiles. Apply a sensible backoff and allow an intentional manual
+retry.
+3. Information architecture and terminology
+Move the public interface away from investigative or surveillance terminology and toward friendly,
+neutral social language.
+Do not make the interface childish or overly cheerful. Keep it mature, precise, and suitable for an Arma
+community.
+3.1 Navigation terminology
+Use the following preferred navigation model, adapting only where the existing layout makes a close
+equivalent substantially clearer:
+Search → Find players
+Watchlist → People
+Servers → Servers
+Monitor → Live activity
+Archive → Recent activity
+The “People” tab should be described as:
+“Friends, teammates, and familiar players you have chosen to save.”
+The “Live activity” tab should answer:
+“Is anyone I know playing right now?”
+The “Recent activity” tab should answer:
+“Who did BMFinder observe during recent server checks?”
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+3
+
+----- page 4 -----
+3.2 Action terminology
+Prefer:
+“Add to watchlist” → “Save person”
+“Remove from watchlist” → “Remove saved person”
+“Refresh watchlist” → “Refresh saved people”
+“Poll servers” → “Check servers now”
+“Continuous polling” → “Live updates”
+“Start monitoring” → “Start live updates”
+“Stop monitoring” → “Stop live updates”
+“Tracked player” → “Saved person” or “Saved player”
+“Tracking” → “Saved” or “Following,” depending on context
+“Nickname” → “Your label”
+“Role” → “Relationship”
+“Last seen” → “Last observed playing”
+“Archive snapshot” → “Server check”
+“Presence history” → “Recent observations”
+Use “observe” rather than “detect” where technically accurate.
+Avoid the terms:
+Suspect.
+Target.
+Intelligence.
+Hidden admin.
+Surveillance.
+Investigation candidate.
+Risk score.
+Correlation subject.
+Evidence.
+Technical documentation may use accurate engineering terminology where necessary, but user-facing
+language must reflect the social purpose.
+3.3 Relationship categories
+Replace the current public default roles with:
+Friend
+Teammate
+Community member
+Server staff
+Other
+Do not automatically assign any category that implies suspicion.
+Rename the field from “Role” to “Relationship.”
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+4
+
+----- page 5 -----
+Existing stored values must be migrated safely:
+player  → Community member
+admin  → Server staff
+other  → Other
+suspect  → Other
+Do not silently lose user records during migration.
+Where an existing suspect  value is migrated, optionally show a one-time notice:
+“An older relationship label was replaced with ‘Other’ because the public version now uses
+neutral social categories.”
+Do not include accusatory wording in that notice.
+Custom tags remain user-defined. Do not police ordinary custom labels locally, but do not ship
+predefined accusatory tags.
+4. First-run disclosure and consent
+Create a polished first-run disclosure shown before BMFinder begins passive recording or server
+checks.
+It must be concise enough to read, but specific enough to explain the actual behaviour.
+4.1 First-run screen
+Heading:
+“Welcome to BMFinder”
+Intro:
+“BMFinder helps you save and recognise friends, teammates, and familiar Arma 3 players using
+BattleMetrics pages available in your browser.”
+Include four clear disclosure cards or sections:
+Stored locally
+“Saved people, labels, server information, and recent observations are stored in this browser profile.
+BMFinder does not send them to a BMFinder server.”
+What BMFinder reads
+“When you visit supported BattleMetrics pages, BMFinder can read relevant player and server
+information needed to update people and servers you have chosen to save.”
+• 
+• 
+• 
+• 
+5
+
+----- page 6 -----
+Intentional server checks
+“When you choose a refresh or enable live updates, BMFinder opens BattleMetrics pages sequentially
+using your existing browser session. Checks are deliberately paced.”
+Private profiles
+“BMFinder respects profiles that BattleMetrics makes private or unavailable and does not attempt to
+reveal them.”
+Include links or buttons for:
+Read Privacy Policy
+Read Acceptable Use Policy
+View data controls
+Require an affirmative button:
+“I understand — continue”
+Do not use a preselected checkbox.
+Persist the accepted policy version and date. If data practices materially change, show a new disclosure
+rather than silently treating prior acceptance as sufficient.
+No server polling or passive persistence should occur before the first-run disclosure has been accepted,
+except for the minimum storage required to remember that the disclosure has not yet been completed.
+5. Contextual privacy explanations
+Add subtle explanations where users make privacy-relevant choices.
+5.1 People tab empty state
+Use:
+Heading: “Save people you recognise”
+Body:
+“Add friends, teammates, or familiar players so BMFinder can help you recognise name changes and
+see when they appear on servers you follow.”
+Primary action:
+“Find players”
+Secondary action:
+“Import saved links”
+• 
+• 
+• 
+6
+
+----- page 7 -----
+Do not use imagery or language resembling a law-enforcement watchlist.
+5.2 Live updates explanation
+Before first enabling live updates, show:
+Heading: “Enable live updates?”
+Body:
+“BMFinder will check your followed servers one at a time while this dashboard remains open. Recent
+observations are stored locally for [RETENTION PERIOD]. You can pause updates or delete the history at
+any time.”
+Actions:
+Enable live updates
+Not now
+Include a link to retention settings.
+5.3 Observation limitations
+Near “Last observed playing” and in Recent activity, provide a tooltip or info panel:
+“BMFinder only knows about checks that occurred while it was running. A missing
+observation does not mean someone was offline.”
+Where appropriate, add:
+“Private sessions, hidden server rosters, delayed information, name changes, or failed
+checks can make observations incomplete.”
+Never visually present missing information as a suspicious event.
+6. Export redesign
+Exports are useful for backups and deliberately sharing a social list, but player identifiers and history
+should not be included casually.
+Replace any one-click CSV export with an explicit export dialog.
+6.1 Export dialog
+Heading: “Export BMFinder data”
+First ask for the purpose:
+Personal backup
+• 
+• 
+• 
+7
+
+----- page 8 -----
+Share a saved-people list
+Export recent activity
+Custom export
+Then provide granular checkboxes.
+Saved-person fields
+Your labels — default on
+Current in-game names — default on
+Relationship categories — default on
+Tags — default on
+Player IDs — default off
+Last observed server — default off
+Last observation time — default off
+Server fields
+Server names — default on where relevant
+Server links — default on
+Server IDs — default off
+Activity fields
+Recent server checks — default off
+Unsaved roster members — default off and visually marked sensitive
+Exact timestamps — default off
+Player IDs in activity history — default off
+Do not include unsaved roster members in a “Share a saved-people list” export.
+6.2 Export warning
+When any of the following are enabled:
+Player IDs.
+Exact activity timestamps.
+Unsaved roster members.
+Full server-check history.
+Show:
+Heading: “This export contains detailed player information”
+Body:
+“Only share it with someone you trust and only for a legitimate social, backup, or authorised community
+purpose. Do not publish it as a public player database or use it for harassment, identity tracing, or
+unwanted monitoring.”
+Require a confirmation checkbox that is not preselected:
+“I have reviewed the selected fields.”
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+8
+
+----- page 9 -----
+6.3 Export formats
+Support:
+A native BMFinder transfer format for importing into another BMFinder installation.
+CSV where tabular interoperability is useful.
+JSON backup for complete personal restoration.
+Clearly distinguish them:
+BMFinder list: intended for transferring selected saved people.
+CSV: intended for manual review or use in spreadsheet software.
+Full backup: intended for restoring the same user’s data.
+Do not make a full backup the default sharing format.
+6.4 Import safeguards
+When implementing BMFinder-list or CSV import:
+Preview the number of records.
+Show which fields will be imported.
+Deduplicate by stable player ID where available.
+Never overwrite a user label without confirmation.
+Do not import activity history by default.
+Do not import unsaved roster snapshots through a friends-list workflow.
+Allow the user to choose a default relationship category.
+Clearly identify malformed or unsupported rows.
+Keep the import local.
+7. Deletion and retention controls
+Create a dedicated Data and privacy settings section.
+It must show:
+Number of saved people.
+Number of followed servers.
+Number of recent server checks.
+Oldest retained observation.
+Current retention period.
+Approximate local storage use where reasonably available.
+Provide these controls:
+Delete an individual person’s history.
+Delete an individual server’s history.
+Clear recent activity.
+Remove all saved people.
+Remove all followed servers.
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+9
+
+----- page 10 -----
+Reset labels and tags.
+Delete all BMFinder data.
+Export backup before deletion.
+7.1 Retention settings
+Provide retention choices such as:
+1 day
+3 days
+7 days
+14 days
+30 days
+Custom, capped at a documented maximum
+Keep the public default at 14 days unless a lower default is already required by product decisions.
+Explain:
+“Retention applies to recent activity and server-check history. Saved people, labels, tags,
+and followed servers remain until you remove them.”
+When the user shortens retention, prune older data immediately after confirmation.
+7.2 Delete-all flow
+Use a deliberate confirmation:
+Heading: “Delete all BMFinder data?”
+Body:
+“This permanently removes saved people, labels, tags, followed servers, recent activity, and settings
+from this browser profile. Exported files will not be deleted.”
+Require typing:
+DELETE
+Do not use a vague “Are you sure?” dialog.
+8. Privacy blur
+Preserve the existing screenshot privacy-blur feature and improve its explanation.
+Rename it if needed to:
+“Screenshot privacy”
+Tooltip:
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+10
+
+----- page 11 -----
+“Blur in-game names and player IDs before sharing a screenshot. Hovering may
+temporarily reveal a field on your own screen.”
+Add an optional stronger mode:
+“Presentation mode”
+In presentation mode:
+Names remain blurred even on hover.
+Player IDs remain blurred.
+Export buttons are hidden or disabled.
+Tooltips do not reveal identifiers.
+The state is clearly indicated.
+Leaving presentation mode requires an intentional action.
+Do not imply that screenshot blur removes data from storage. It affects only presentation.
+9. About, independence, and policy pages
+Add an About or Legal section accessible from the dashboard and popup.
+It must state:
+“BMFinder is an independent community project. It is not affiliated with, endorsed by,
+sponsored by, or produced by BattleMetrics, Valve, Steam, Bohemia Interactive, or Arma.”
+Include accessible pages for:
+Privacy Policy.
+Terms of Use.
+Acceptable Use Policy.
+Open-source licence, if applicable.
+Contact and security reporting.
+Current version.
+Data-schema version.
+Extraction version.
+Do not use BattleMetrics logos, marks, or visual branding in a manner that suggests endorsement.
+Use plain text when referring to BattleMetrics unless an authorised asset is available.
+10. Store-listing single purpose
+Prepare suggested Chrome Web Store copy that reflects one clear purpose.
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+11
+
+----- page 12 -----
+Short description
+“Save and recognise friends and familiar Arma 3 players through BattleMetrics, with local
+labels, server activity, and name-change awareness.”
+Single-purpose statement
+“BMFinder helps Arma 3 players save, recognise, and reconnect with friends, teammates,
+and familiar community members using player and server information displayed on
+BattleMetrics pages available in their browser.”
+Privacy summary
+“BMFinder stores its working data locally in your browser profile. It does not operate a
+developer-controlled player database or sell player information.”
+Do not market the public extension using:
+Hidden-player discovery.
+Admin detection.
+Cheater identification.
+Behavioural correlation.
+Investigation.
+Intelligence gathering.
+Surveillance.
+Player-ID scanning.
+11. Technical constraints
+Preserve the existing architectural strengths:
+Chromium Manifest V3.
+One background worker as the controlled storage writer where currently designed.
+Centralised DOM selectors and extraction logic.
+Sequential hidden-tab reuse.
+Deliberate gaps between page loads.
+IndexedDB for structured local storage.
+Existing backup compatibility where safe.
+Theme tokens and light/dark/system support.
+Bundled fonts with no tracking CDN.
+Visible extraction failure warnings.
+Do not introduce:
+A remote analytics service.
+Developer-accessible telemetry.
+A cloud player database.
+Background transmission of saved-player data.
+External font or tracking requests.
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+12
+
+----- page 13 -----
+Fingerprinting.
+Undisclosed permissions.
+Broad host permissions unrelated to BattleMetrics.
+Automatic high-volume retries.
+Audit manifest.json  and request only the narrowest permissions necessary for current public
+features.
+Where the bookmarks permission is optional, request it only when the user initiates browser-bookmark
+import rather than requiring it for unrelated functionality, where Chromium’s permission model allows
+this.
+12. Storage and migration
+Inspect the current IndexedDB schema and implement safe migrations.
+Requirements:
+Existing saved players must survive terminology changes.
+Existing labels and tags must survive.
+Existing servers must survive.
+Existing activity history must remain subject to retention.
+Removed public features must not leave active scheduled jobs.
+Removed public features must not leave visible data that implies suspicion.
+Migration must be idempotent.
+Migration failure must not silently erase the database.
+Create a backup or transactional rollback strategy before destructive schema changes where
+practical.
+Record the schema version.
+Add tests for:
+Role-to-relationship migration.
+suspect  to Other  migration.
+Unavailable/private profile state.
+Export defaults.
+Exclusion of player IDs by default.
+Deletion of per-player history.
+Deletion of per-server history.
+Retention pruning.
+Removal of obsolete scheduled jobs.
+First-run disclosure versioning.
+Public build exclusion of scanning and correlation modules.
+13. Accessibility and UX quality
+Maintain or improve:
+Keyboard navigation.
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+13
+
+----- page 14 -----
+Visible focus states.
+Semantic controls.
+Screen-reader labels.
+Sufficient contrast in all accent themes.
+Reduced-motion support.
+Clear loading and failure states.
+Confirmation messages that explain what happened.
+Non-colour indicators for relationship categories and statuses.
+Do not use colour alone to distinguish privacy, failure, activity, or relationship state.
+Keep dense information readable at common Chromium zoom levels, including 90% and 100%.
+Avoid overly small metadata text.
+14. Empty, loading, and error states
+Design states for:
+No saved people.
+No followed servers.
+No recent activity.
+A server that has never been checked.
+A person never observed by BMFinder.
+A player profile that is unavailable.
+A BattleMetrics page layout change.
+A timed-out check.
+A paused live-update session.
+An empty import.
+A duplicate import.
+A partially successful export.
+Storage quota issues.
+Error messages must not imply malice or privacy evasion.
+Example extraction error:
+“BMFinder could not read the expected information from this BattleMetrics page. The
+page layout may have changed. No record was updated.”
+15. README changes
+Rewrite the public README so the opening immediately establishes the social purpose.
+Suggested opening:
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+14
+
+----- page 15 -----
+BMFinder
+BMFinder is a local browser extension that helps Arma 3 players save and recognise
+friends, teammates, and familiar community members through BattleMetrics.
+Players often change their in-game names, and Arma 3 does not provide a simple way to
+connect an in-game identity with a Steam friend. BMFinder lets you keep your own labels,
+follow familiar players and servers, and check whether anyone you know is playing.
+BMFinder stores its working data in your browser profile. It does not operate a central
+player database and does not attempt to reveal profiles that BattleMetrics makes private
+or unavailable.
+Retain useful technical explanations, but revise or remove passages that make the public extension
+sound like an anti-bot workaround, hidden-admin finder, scanner, or investigative tool.
+It is acceptable to explain honestly that the extension reads rendered pages instead of reproducing
+private request-signing logic. Phrase this as a technical boundary, not an achievement in defeating
+protections.
+Move detailed historical experiments involving API failures and Cloudflare challenges into a
+development-history document if they are not necessary for ordinary installation or use.
+Ensure the public README accurately states that:
+ID-range scanning is not included.
+Absence correlation is not included.
+Private and unavailable profiles are respected.
+Data is local unless deliberately exported.
+Observations are incomplete and are not proof.
+Live updates are deliberately paced.
+The project is independent and not endorsed by BattleMetrics.
+16. Acceptance criteria
+The work is complete only when all of the following are true:
+The visible public interface contains no “Suspect” role or accusatory defaults.
+The public build contains no ID-range scanner.
+The public build contains no absence-correlation engine or UI.
+Private or unavailable profiles receive a neutral, non-inferential state.
+The interface does not identify roster omissions as hidden administrators.
+The primary user journey is framed around friends, teammates, and familiar players.
+A first-run disclosure appears before data recording begins.
+Privacy, Terms, and Acceptable Use pages are accessible in-product.
+Exported player IDs are off by default.
+Unsaved roster members are off by default in every export.
+Sharing exports require deliberate field selection.
+Per-player, per-server, recent-history, and delete-all controls exist.
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+1. 
+2. 
+3. 
+4. 
+5. 
+6. 
+7. 
+8. 
+9. 
+10. 
+11. 
+12. 
+15
+
+----- page 16 -----
+Retention is visible and configurable.
+Existing user records migrate without loss.
+Manifest permissions are audited and justified.
+Tests cover migrations, retention, deletion, export defaults, and unavailable profiles.
+The README and store copy accurately match the public build.
+No remote analytics, telemetry, or developer-controlled player database has been introduced.
+Existing light, dark, system, accent, typography, and privacy-blur functionality remains working.
+npm test  passes, with new tests added where appropriate.
+17. Required working process
+Begin by inspecting:
+manifest.json
+Background worker and job queue.
+Content reader.
+DOM extraction library.
+IndexedDB schema and migrations.
+Correlation and matching modules.
+Dashboard routes and tabs.
+Popup actions.
+Export and backup code.
+Existing tests.
+README and any store metadata.
+Build or packaging scripts.
+Then:
+Identify every public-build location affected by this prompt.
+Make the implementation changes.
+Add or update migrations.
+Add or update tests.
+Run the full test suite.
+Build or package the public extension if a build command exists.
+Inspect the generated package to confirm excluded features are not bundled.
+Report any requirements that could not be completed and explain why.
+Do not merely produce mockups or pseudocode where the repository allows a real implementation.
+18. Final report format
+At completion, provide:
+Summary
+A concise description of the new product framing and safeguards.
+13. 
+14. 
+15. 
+16. 
+17. 
+18. 
+19. 
+20. 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+1. 
+2. 
+3. 
+4. 
+5. 
+6. 
+7. 
+8. 
+16
+
+----- page 17 -----
+Files changed
+Each modified file with a one-sentence explanation.
+Public features removed
+Confirm exactly how ID scanning, absence correlation, suspicious roles, and related code were
+excluded.
+UX changes
+Explain navigation, terminology, first-run disclosure, privacy states, exports, and deletion controls.
+Data migration
+Explain how existing records and old role values are migrated.
+Privacy and permissions
+List the manifest permissions, why each is required, and whether any were removed or made optional.
+Tests
+List tests added or changed and provide the final test result.
+Build verification
+Confirm whether excluded functionality appears anywhere in the generated public package.
+Remaining risks
+State any unresolved privacy, compatibility, legal, or BattleMetrics-policy questions without pretending
+they have been resolved.
+17

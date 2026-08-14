@@ -1,8 +1,11 @@
 {
-  "name": "bmfinder-extension",
+  "name": "bmfinder",
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test \"extension/test/*.test.js\"",
+    "verify": "node verify-extension.mjs",
+    "build": "node build-webstore.mjs",
+    "check": "npm test && npm run verify && npm run build"
   }
 }

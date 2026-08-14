@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Welcome — BMFinder</title>
+<link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<div class="page-shell">
+
+  <header class="doc-hero">
+    <p class="eyebrow">First run</p>
+    <h1 id="top">Welcome to BMFinder</h1>
+    <p class="lead">BMFinder helps you save and recognise friends, teammates, and familiar Arma 3
+      players using BattleMetrics pages available in your browser.</p>
+  </header>
+
+  <main>
+
+    <!-- Four disclosures, each naming a specific behaviour. Deliberately not a
+         wall of legal text: this is the screen that has to actually be read, so
+         it says what the extension does in the order someone would meet it. -->
+    <section class="disclosures" aria-label="What BMFinder does">
+
+      <article class="disclosure">
+        <h2>Stored locally</h2>
+        <p>Saved people, labels, server information, and recent observations are stored in this
+          browser profile. BMFinder does not send them to a BMFinder server.</p>
+      </article>
+
+      <article class="disclosure">
+        <h2>What BMFinder reads</h2>
+        <p>When you visit supported BattleMetrics pages, BMFinder can read relevant player and
+          server information needed to update people and servers you have chosen to save.</p>
+      </article>
+
+      <article class="disclosure">
+        <h2>Intentional server checks</h2>
+        <p>When you choose a refresh or enable live updates, BMFinder opens BattleMetrics pages
+          sequentially using your existing browser session. Checks are deliberately paced.</p>
+      </article>
+
+      <article class="disclosure">
+        <h2>Private profiles</h2>
+        <p>BMFinder respects profiles that BattleMetrics makes private or unavailable and does not
+          attempt to reveal them.</p>
+      </article>
+
+    </section>
+
+    <nav class="disclosure-links" aria-label="Policies and controls">
+      <a href="policy.html#privacy-policy">Read Privacy Policy</a>
+      <a href="policy.html#acceptable-use-policy">Read Acceptable Use Policy</a>
+      <a href="../dashboard/dashboard.html#privacy">View data controls</a>
+    </nav>
+
+    <!-- One affirmative action, and no pre-ticked checkbox: the click IS the
+         consent, so there is nothing here that could be agreed to by default. -->
+    <div class="consent">
+      <button id="accept" type="button">I understand &mdash; continue</button>
+      <p class="consent-note" id="consent-note">Nothing is recorded and no servers are checked
+        until you continue.</p>
+    </div>
+
+  </main>
+
+  <footer class="doc-footer">
+    <p>BMFinder is an independent community project, not affiliated with or endorsed by
+      BattleMetrics, Bohemia Interactive, Valve or Arma.</p>
+  </footer>
+
+</div>
+<script type="module" src="welcome.js"></script>
+</body>
+</html>

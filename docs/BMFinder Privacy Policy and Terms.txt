@@ -1,0 +1,359 @@
+----- page 1 -----
+BMFinder Privacy Policy, Terms of Use and
+Acceptable Use Policy
+Effective date: [DATE]
+Developer: [DEVELOPER NAME OR PROJECT NAME]
+Contact: [CONTACT EMAIL]
+Project website: [PROJECT URL]
+1. About BMFinder
+BMFinder is an independent browser extension designed to help Arma 3 players find, recognise, and
+reconnect with friends, teammates, and other familiar players using information displayed through
+BattleMetrics.
+BMFinder is intended primarily to answer ordinary social questions such as:
+Are any of my saved friends or teammates playing?
+Which server are they currently playing on?
+Has someone changed their in-game name?
+When did BMFinder last observe a saved player?
+Which familiar players have recently appeared on servers I follow?
+BMFinder is not affiliated with, endorsed by, sponsored by, or produced by BattleMetrics, LLC, Bohemia
+Interactive, Valve Corporation, or Steam.
+“BattleMetrics,” “Arma,” “Arma 3,” “Steam,” and related names and trademarks belong to their respective
+owners.
+2. Privacy summary
+BMFinder is designed to operate locally inside the user’s browser.
+BMFinder does not require a BMFinder account. It does not operate a developer-controlled server for
+collecting player records, and it does not send the user’s saved player information, server history,
+labels, tags, or activity archive to the developer.
+Information collected by BMFinder is stored in the user’s browser profile unless the user deliberately
+exports it.
+BMFinder uses BattleMetrics pages that the user’s browser is already authorised to access. It does not
+ask the user to provide a BattleMetrics password, authentication token, session cookie, or API key to the
+developer.
+• 
+• 
+• 
+• 
+• 
+1
+
+----- page 2 -----
+3. Information BMFinder may process
+Depending on the features used, BMFinder may process and store:
+BattleMetrics player IDs.
+Current and previously observed in-game names.
+User-created nicknames or labels.
+User-created relationship categories, tags, notes, and favourites.
+BattleMetrics server IDs, names, game identifiers, and links.
+Whether a saved player was observed on a followed server.
+The date and time of an observation.
+The server on which a player was observed.
+Server roster snapshots created through an intentional refresh or live-update feature.
+Imported BattleMetrics player links found in browser bookmarks or a bookmarks file.
+Extension settings, including appearance, retention, and privacy-blur preferences.
+Locally generated backup and export data.
+BMFinder may read relevant content from BattleMetrics pages rendered in the browser. Passive page
+reading records information only where required for BMFinder’s disclosed functionality, such as
+updating a player or server the user has already chosen to save.
+BMFinder does not intentionally collect payment information, private messages, Steam passwords,
+BattleMetrics passwords, authentication cookies, or unrelated browsing history.
+4. How information is used
+BMFinder processes information only to provide its user-facing features, including:
+Finding players by name or known identifier.
+Maintaining a locally saved list of friends, teammates, and familiar players.
+Showing current or recently observed server activity.
+Helping the user recognise players who change their in-game names.
+Refreshing saved player and server information.
+Displaying recent observations and server snapshots.
+Importing and exporting user-selected information.
+Creating and restoring local backups.
+Maintaining extension preferences.
+Diagnosing extraction failures and displaying relevant warnings.
+BMFinder does not use collected information for advertising, behavioural advertising, credit decisions,
+employment decisions, data brokerage, or sale to third parties.
+5. Local storage and developer access
+BMFinder stores its working data in storage associated with the user’s browser profile.
+The developer does not receive, inspect, or have remote access to this locally stored information.
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+2
+
+----- page 3 -----
+Removing BMFinder may not automatically erase every browser storage entry in all Chromium-based
+browsers. Users should use BMFinder’s deletion controls before uninstalling when they want to ensure
+that saved data has been removed.
+Clearing the relevant browser profile or extension storage may permanently erase BMFinder data.
+6. Data retention
+BMFinder retains saved friends, players, servers, tags, labels, and settings until the user removes them
+or clears the extension’s data.
+Time-based roster or activity history is retained only for the period selected in BMFinder’s settings. The
+default retention period is [14 days].
+When information falls outside the selected retention period, BMFinder automatically removes it from
+the active local archive.
+Exports and backups created by the user are ordinary files outside BMFinder’s direct control. BMFinder
+cannot automatically delete copies that the user has exported, shared, duplicated, or backed up
+elsewhere.
+7. User controls
+BMFinder provides or intends to provide controls that allow users to:
+Remove an individual saved player.
+Remove a saved server.
+Delete history associated with an individual player.
+Delete history associated with an individual server.
+Clear roster and activity history.
+Change the history-retention period.
+Delete all locally stored BMFinder data.
+Export a backup.
+Restore a backup.
+Enable a privacy blur before taking screenshots.
+Choose whether player IDs are included in an export.
+Users are responsible for protecting any exported files and deleting copies they no longer need.
+8. Exports and sharing
+BMFinder may allow users to export player or server information so that it can be backed up or
+deliberately shared with another person.
+An export may contain identifiers, names, labels, tags, server information, or activity observations.
+Users must review the selected export options before creating or sharing a file.
+Users should share only the minimum information needed for the intended purpose.
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+3
+
+----- page 4 -----
+Player IDs should be excluded unless they are genuinely needed, such as when transferring a
+voluntarily maintained friends list to another person who plays with substantially the same group.
+Exported information must not be:
+Published as a public player database.
+Sold, licensed, or supplied to a data broker.
+Used to encourage harassment or unwanted contact.
+Used to expose a person’s real-world identity.
+Used to construct or publish detailed behavioural profiles.
+Used to organise targeted disruption of another person’s gameplay.
+Shared with someone the user reasonably believes will misuse it.
+The person receiving an export must independently obtain and use BMFinder lawfully and responsibly.
+9. Private and unavailable profiles
+BMFinder is designed to respect profile-visibility decisions enforced by BattleMetrics.
+When BattleMetrics returns a profile as private, unavailable, or not found, BMFinder must not attempt
+to defeat that restriction.
+BMFinder may display a neutral status such as:
+“This profile is private, unavailable, deleted, or no longer accessible.”
+BMFinder should not claim that an unavailable profile belongs to a particular person, administrator,
+moderator, or hidden player.
+The absence of a name from a visible roster is not proof that a particular person is present, is using a
+hidden identity, is acting as an administrator, or has deliberately concealed themselves.
+Users must not use roster differences, missing names, or unavailable profiles as the sole basis for
+accusing or targeting another person.
+10. Third-party services
+BMFinder interacts with pages and information provided by third-party services, principally
+BattleMetrics.
+Use of BattleMetrics remains governed by BattleMetrics’ own terms, privacy policy, access rules, account
+permissions, and technical restrictions.
+BMFinder is designed to use pages that the user is already permitted to access through their own
+browser session. Users must not use BMFinder to obtain access they would not otherwise possess.
+BMFinder does not grant any licence or permission to reproduce, republish, commercially exploit, or
+publicly distribute content belonging to BattleMetrics or another third party.
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+4
+
+----- page 5 -----
+Users are responsible for ensuring that their use of BMFinder and any information obtained through it
+complies with:
+BattleMetrics’ applicable terms and policies.
+The rules of the relevant game server or community.
+The Chrome Web Store or other extension-distribution platform’s rules.
+Applicable privacy, data-protection, harassment, computer-misuse, and intellectual-property
+laws.
+BMFinder is designed to respect BattleMetrics’ access controls, but no statement in this policy should be
+interpreted as a representation that BattleMetrics has approved or endorsed BMFinder.
+11. Chrome Web Store data-use commitment
+BMFinder uses browser permissions and page information only where necessary to provide its clearly
+disclosed, user-facing purpose.
+BMFinder does not sell user data.
+BMFinder does not use user data for personalised advertising.
+BMFinder does not transfer user data to data brokers, advertising platforms, or unrelated third parties.
+BMFinder’s use of data is intended to adhere to the Chrome Web Store User Data Policy, including its
+Limited Use requirements.
+12. Acceptable use
+BMFinder may be used to:
+Save friends, teammates, and familiar community members.
+Recognise players who have changed their in-game name.
+Check whether saved players are currently or recently active.
+Find a server where friends are playing.
+Maintain personal labels and tags.
+Share a deliberately selected friends list with a trusted person who participates in the same
+community.
+Maintain reasonable personal backups.
+Assist legitimate server moderation where the user is authorised by the server operator and
+follows the community’s rules.
+Use of BMFinder must remain proportionate to the user’s legitimate social or community-management
+purpose.
+13. Prohibited use
+Users must not use BMFinder to:
+Stalk, threaten, bully, intimidate, or harass another person.
+Persistently monitor someone after being asked to stop.
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+5
+
+----- page 6 -----
+Facilitate unwanted contact across servers or platforms.
+Dox, identify, or attempt to identify someone in the real world.
+Discover or expose private contact information.
+Circumvent a private, unavailable, or access-restricted BattleMetrics profile.
+Infer and publicly reveal the identity of a player whose profile or session is hidden.
+Treat a missing roster entry as proof of identity or misconduct.
+Create a public or commercial database of player activity.
+Sell, trade, monetise, or broker player data.
+Coordinate stream sniping, server stalking, raids, disruption, or targeted harassment.
+Discriminate against a person based on a protected characteristic.
+Make disciplinary, reputational, or accusatory claims based solely on incomplete BMFinder
+observations.
+Use automated activity at a volume intended to evade rate limits, anti-bot systems, or technical
+protections.
+Misrepresent BMFinder as an official BattleMetrics, Steam, Valve, Bohemia Interactive, or Arma
+product.
+Use BMFinder for any unlawful purpose.
+Encourage another person to perform any prohibited activity.
+14. Moderation and anti-cheat use
+BMFinder information may be incomplete, delayed, ambiguous, or affected by factors such as:
+The extension not running.
+The browser being closed.
+A server not being checked.
+A player changing names.
+BattleMetrics delays.
+Hidden player lists.
+Private sessions or profiles.
+Extraction errors.
+Differences between public and authorised server-administration views.
+BMFinder observations are leads, not proof.
+Server staff must not issue a ban, public accusation, punishment, or reputational claim solely because
+BMFinder shows—or fails to show—a player at a particular time.
+Where BMFinder contributes to a moderation concern, staff should verify it through independent
+evidence and follow the server community’s normal review and appeal procedures.
+15. Accuracy and availability
+BMFinder depends on third-party pages, selectors, services, and information that can change without
+notice.
+The extension may produce incomplete, outdated, incorrectly matched, or unavailable information.
+Users must independently verify important conclusions.
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+6
+
+----- page 7 -----
+BMFinder is provided on an “as available” basis without a guarantee that every feature will remain
+operational, accurate, or compatible with BattleMetrics.
+16. Security
+Users are responsible for:
+Securing their browser profile and computer.
+Protecting exported backup and CSV files.
+Reviewing files before sharing them.
+Avoiding installation of modified or untrusted BMFinder builds.
+Keeping the extension and browser updated.
+Reporting suspected vulnerabilities responsibly.
+Users must not publish security vulnerabilities before allowing a reasonable opportunity for
+remediation where doing so could expose other users to harm.
+Security reports may be sent to [SECURITY CONTACT].
+17. Changes and discontinuation
+BMFinder may be updated, restricted, or discontinued as technical requirements, third-party policies,
+ethical considerations, or legal requirements change.
+Material changes to data handling will be prominently disclosed before the changed collection or use
+begins where required.
+The effective date at the top of this document will be updated when this policy materially changes.
+18. Suspension of support
+The developer may decline support, remove access to official distribution channels, reject feature
+requests, or take other reasonable action where a person uses BMFinder in a malicious, unlawful,
+deceptive, or abusive manner.
+Because BMFinder operates locally, the developer may not be technically capable of remotely disabling
+an installed copy.
+19. Disclaimer and limitation
+BMFinder is a community-developed tool and is not a substitute for professional legal, investigative,
+safeguarding, or moderation advice.
+To the maximum extent permitted by applicable law, the developer is not responsible for decisions
+made solely from BMFinder observations, misuse of exported information, actions taken by third-party
+services, or losses caused by unavailable or inaccurate third-party data.
+Nothing in these terms excludes rights or liabilities that cannot lawfully be excluded.
+• 
+• 
+• 
+• 
+• 
+• 
+7
+
+----- page 8 -----
+20. Contact and complaints
+Questions, privacy concerns, abuse reports, and deletion questions may be sent to:
+[CONTACT EMAIL]
+When reporting abuse, do not send unnecessary player history, private information, authentication
+data, or unrelated personal information.
+21. Acceptance
+By installing or using BMFinder, the user confirms that they have read and agree to these Terms of Use
+and the Acceptable Use Policy.
+Users who do not agree must not install or use BMFinder.
+8
