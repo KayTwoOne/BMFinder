@@ -178,10 +178,6 @@ extension/          The extension. This is the product.
   icons/            Extension icons, 16–128px
   test/             Node test-runner suites
 
-webstore/           Generated. Byte-identical to extension/ minus dev files.
-                    This is what gets zipped and uploaded. Never edit directly.
-
-webstore-assets/    Store listing copy, permission justifications, screenshots
 assets/             Repo banner and source icons
 docs/               Design spec, privacy policy, public release audit
 
