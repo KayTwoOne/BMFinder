@@ -237,6 +237,30 @@ export function rankSearchResults(results, trackedOrder = []) {
    still arrive most-popular-first.
 
    Pure and side-effect free so it can be tested without a browser or network. */
+/* The narrower query to try when a search brought back nothing that matches.
+
+   Server names in a community share almost every word: "CodeFourGaming - King
+   of the Hill EU#1" and "... EU#5 - Infantry" differ only in the part carrying
+   a number. Searching the full name asks BattleMetrics for the words the
+   siblings have in common, and since it returns them ranked by how busy they
+   are, a quiet server can fall off the end of the results entirely - the
+   ranking here cannot promote what was never sent.
+
+   The tokens carrying digits are the ones that separate siblings, so they make
+   a far more selective query. The results are still scored against the ORIGINAL
+   query, so searching "EU#1" and matching "CodeFourGaming ... EU#1" still ranks
+   the right server first.
+
+   Returns nothing when it would not help: a single token, or a query where
+   every token has a digit, would just repeat the search that already failed. */
+export function discriminatingTerm(query) {
+  const tokens = String(query || "").trim().split(/\s+/).filter(Boolean);
+  if (tokens.length < 2) return "";
+  const withDigit = tokens.filter((t) => /\d/.test(t));
+  if (!withDigit.length || withDigit.length === tokens.length) return "";
+  return withDigit.join(WILDCARD);
+}
+
 export function rankServerResults(query, rows) {
   return (rows || [])
     .map((r, i) => ({ ...r, score: matchScore(query, r.name || ""), order: i }))

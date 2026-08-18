@@ -9,7 +9,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   matchScore, normalize, searchTerm, unsearchable, usesWildcard,
-  rankSearchResults, rankServerResults, confidenceScore, EVIDENCE,
+  rankSearchResults, rankServerResults, discriminatingTerm, confidenceScore, EVIDENCE,
 } from "../lib/match.js";
 import {
   RELATIONSHIPS, RELATIONSHIP_LABEL, RELATIONSHIP_SHORT, RELATIONSHIP_HINT, toRelationship,
@@ -392,4 +392,35 @@ test("equally-good server matches keep the page's popularity order", () => {
 test("server ranking survives an empty list and a nameless row", () => {
   assert.deepEqual(rankServerResults("x", []), []);
   assert.equal(rankServerResults("x", [{ id: "1" }])[0].score, 0);
+});
+
+/* ---- narrowing a server search that found only siblings ------------------
+   Community server names share nearly every word; only the part with a number
+   separates them. BattleMetrics returns matches busiest-first, so a quiet
+   server can fall off the end entirely. */
+
+test("the digit-bearing part is what separates sibling servers", () => {
+  assert.equal(discriminatingTerm("CodeFourGaming EU#1"), "EU#1");
+  assert.equal(discriminatingTerm("CodeFourGaming King of the Hill US#4"), "US#4");
+});
+
+test("several numbered parts are all kept, bridged like any other query", () => {
+  assert.equal(discriminatingTerm("Server 1 Map 2"), "1%2");
+});
+
+test("narrowing is skipped when it would repeat the same search", () => {
+  assert.equal(discriminatingTerm("EU#1"), "", "a single token is already as narrow as it gets");
+  assert.equal(discriminatingTerm("EU#1 US#4"), "", "every token has a digit, so nothing is dropped");
+  assert.equal(discriminatingTerm("King of the Hill"), "", "no digits, nothing to narrow to");
+  assert.equal(discriminatingTerm(""), "");
+  assert.equal(discriminatingTerm("   "), "");
+});
+
+test("narrowing still ranks against the full name the user typed", () => {
+  // What the narrowed search "EU#1" would plausibly return, busiest first.
+  const rows = [
+    { id: "9", name: "SomeOtherCommunity - Wasteland EU#1" },
+    { id: "3", name: "CodeFourGaming - King of the Hill EU#1" },
+  ];
+  assert.equal(rankServerResults("CodeFourGaming - King of the Hill EU#1", rows)[0].id, "3");
 });

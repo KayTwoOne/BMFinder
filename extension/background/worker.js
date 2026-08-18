@@ -14,7 +14,7 @@ import { db } from "../lib/db.js";
 import { entriesFor, storesForParts } from "../lib/transfer.js";
 import {
   matchScore, searchTerm, unsearchable, usesWildcard,
-  rankSearchResults, rankServerResults, confidenceScore, EVIDENCE,
+  rankSearchResults, rankServerResults, discriminatingTerm, confidenceScore, EVIDENCE,
 } from "../lib/match.js";
 
 /* A name this close to the query is the player who was asked for. */
@@ -803,10 +803,16 @@ async function search(query, mode = "name") {
       there is no reason to think the server list treats it differently. Both
       forms are tried, filter[search] first, so whichever their router honours
       wins and a future change to either does not break the feature. */
+/* sort=score asks BattleMetrics to order by how well the name matches, which is
+   what the player search has always done. Without it the server list comes back
+   in its default order - broadly by how busy each server is - so a quiet server
+   whose name matches exactly can sit below busier siblings, or past the end of
+   the results altogether. Re-ranking here cannot rescue a server that was never
+   returned, so the ordering has to be asked for at the source. */
 const serverSearchUrl = (term, game, legacyQ = false) => {
   const base = `${SITE}/servers/${encodeURIComponent(game)}`;
   const q = encodeURIComponent(term);
-  return legacyQ ? `${base}?q=${q}` : `${base}?filter%5Bsearch%5D=${q}`;
+  return legacyQ ? `${base}?q=${q}` : `${base}?filter%5Bsearch%5D=${q}&sort=score`;
 };
 
 /* Server names are long and full of separators - "CodeFourGaming - King of the
@@ -843,21 +849,52 @@ async function searchServers(query, game = "arma3") {
   try {
     const tabId = await ensureTab();
     let diag = null;
+    let best = null;
+
     for (const { term, url } of attempts) {
       if (job.cancelled) break;
       await navigate(tabId, url);
       const resp = await sendTab(tabId, { type: "READ_SERVERSEARCH" });
       const rows = (resp && resp.servers) || [];
       if (rows.length) {
-        return {
+        best = {
           results: rankServerResults(raw, rows),
           searchedWith: url,
           wildcarded: term !== raw,
         };
+        break;
       }
       if (resp && resp.diag) diag = resp.diag;
     }
-    return { results: [], diag };
+
+    if (!best) return { results: [], diag };
+
+    /* Results came back, but if none of them is really the server that was
+       asked for, they are the busy siblings that share its words rather than
+       the server itself. One narrower search, on the part of the name that
+       tells siblings apart, is worth the extra page load - it is the whole
+       difference between finding a quiet server and never seeing it.
+
+       Only when it would actually help: a strong match already found needs no
+       rescue, and a query with nothing to narrow to would just repeat itself. */
+    if ((best.results[0] && best.results[0].score) < STRONG_MATCH && !job.cancelled) {
+      const narrow = discriminatingTerm(raw);
+      if (narrow) {
+        const url = serverSearchUrl(narrow, game);
+        await navigate(tabId, url);
+        const resp = await sendTab(tabId, { type: "READ_SERVERSEARCH" });
+        const rows = (resp && resp.servers) || [];
+        if (rows.length) {
+          // Scored against the ORIGINAL query, not the narrowed one, so the
+          // full name the user typed is still what decides the order.
+          const ranked = rankServerResults(raw, rows);
+          if ((ranked[0].score || 0) > (best.results[0].score || 0)) {
+            best = { results: ranked, searchedWith: url, wildcarded: true, narrowed: narrow };
+          }
+        }
+      }
+    }
+    return best;
   } finally {
     await closeTab();
     job = null;

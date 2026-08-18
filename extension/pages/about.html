@@ -83,6 +83,13 @@
 
         <h4 class="change-kind kind-fix">Fixed</h4>
         <ul>
+          <li><b>Searching for a quiet server could still miss it.</b> Results
+            came back ordered by how busy each server was, so a near-empty one
+            could be absent altogether rather than merely far down. BMFinder now
+            asks for them ordered by name, narrows the search to the part that
+            tells similar servers apart, and says plainly when it still has not
+            found what you asked for instead of offering near-misses as though
+            they were it.</li>
           <li>The extractor date on this page read as <b>2026-07-23</b>, which is
             easy to misread as a month and a day. It now reads
             <b>23/07/2026</b>, like every other date here.</li>

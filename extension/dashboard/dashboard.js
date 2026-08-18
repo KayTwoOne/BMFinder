@@ -2381,12 +2381,34 @@ on('#sv-search', 'click', async () => {
   /* Results arrive ranked by how well the name matches, not by how busy the
      server is, so say so: without a note the top hit looks like BattleMetrics'
      own order and a close-but-not-exact first result reads as a bug. */
+  /* Three honest states, because "here are ten servers" is misleading when none
+     of them is the one that was asked for. BattleMetrics returns matches ranked
+     by how busy a server is, so a quiet one can be missing from the results
+     rather than merely far down them - and a user staring at its busy siblings
+     has no way to tell those two cases apart. Say which it is, and when the
+     name search has clearly not found it, point at the tab that always works. */
+  const top = (rows[0] && rows[0].score) || 0;
   const exact = rows.filter((s) => (s.score || 0) >= 0.999).length;
-  const lead = exact
-    ? `Best name match${exact > 1 ? 'es' : ''} first.`
-    : 'No exact name match. Closest names first.';
+  let lead;
+  if (exact) lead = `Best name match${exact > 1 ? 'es' : ''} first.`;
+  else if (top >= 0.6) lead = 'No exact name match. Closest names first.';
+  else lead = 'Nothing here closely matches that name.';
+
+  /* The hint belongs to "no exact match", not to "nothing close". A row scoring
+     74% is the sibling case exactly: the results look plausible, share most of
+     the name, and the server actually wanted is absent rather than merely low
+     down. That is the moment the user most needs telling, and a threshold set
+     on closeness would stay silent through it. */
+  const hint = exact
+    ? ''
+    : ' A quiet server can be missing from these results rather than just far down them,'
+      + ' because BattleMetrics ranks them by how busy they are. If you know the server,'
+      + ' open it on BattleMetrics and add it with <b>Add by ID</b>.';
+
   box.innerHTML = `<div class="note mb-8">${esc(lead)}`
     + (d.wildcarded ? ' Your words were matched across the whole name.' : '')
+    + (d.narrowed ? ` Narrowed to <b>${esc(d.narrowed.replace(/%/g, ' '))}</b> to find it.` : '')
+    + hint
     + `</div>`
     + rows.map((s) => `<div class="srvcard flex gap-10 items-center">
     <div class="grow"><b>${esc(s.name)}</b><div class="note">ID ${esc(s.id)}${
