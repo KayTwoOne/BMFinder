@@ -1,88 +1,96 @@
-"""Produce exact 1280x800 listing screenshots from the full-resolution captures.
+"""Produce the 1280x800 listing screenshots from the full-resolution captures.
 
-The captures come in three shapes and no single transform suits all of them:
+The captures are 2x full-page grabs about 2550px wide, but the app lays its
+cards out in a centred max-width column roughly 1200px of that. Fitting the
+whole capture into 1280 therefore threw away half the frame on empty margin
+and rendered the UI at 1x, which is too small to read in the store's carousel.
 
-  full-page (aspect ~1.20)  People, DataPrivacy, LiveActivity
-  near-target (1.64)        RecentActivity
-  viewport (2.00)           Search, Servers
+So each shot is cropped to its own content column plus a gutter, and starts at
+the tab bar rather than at the top of the page: the header's logo and controls
+sit outside the column and would be sliced, and the presentation-mode banner
+above it reads as broken when cut mid-sentence. Starting at the tabs gives a
+clean top edge and keeps the navigation, which is the part that shows what the
+extension actually is.
 
-Every image is fitted to the full 1280 width first, so nothing is ever lost
-horizontally. What happens vertically then depends on the shape:
+Both bounds are measured from the image, not hard-coded, so a recapture at a
+different window size still lands correctly.
 
-  taller than 800  -> crop from the top. Squashing a 2100px page into 800px
-                      makes it unreadable at the size the store renders it,
-                      and the top of a dashboard carries the header, the tab
-                      bar and the first rows, which is what the shot is for.
-  shorter than 800 -> pad symmetrically with the page's own background colour,
-                      sampled from the capture so the join is invisible.
-
-Sources are PNG with alpha; output is PNG with the alpha flattened, because
-the store rejects an alpha channel. Downscaling uses Lanczos.
-
-Run: python resize-screenshots.mjs.py
+Run: python resize-screenshots.py
 """
 from pathlib import Path
 
+import numpy as np
 from PIL import Image
 
 DIR = Path(__file__).parent / "webstore-assets" / "screenshots"
 OUT = DIR / "listing"
 W, H = 1280, 800
+GUTTER = 100          # breathing room either side of the content column
+TOP_PAD = 26          # space above the tab bar
 
-# The five shots the listing uses, in the order the store should show them.
 WANTED = ["People", "Search", "LiveActivity", "RecentActivity", "DataPrivacy"]
 
 
-def background(im):
-    """Sample the page background from the capture's own corners.
+def content_column(arr, from_y=260):
+    """Horizontal bounds of the card column, ignoring the full-width header."""
+    body = arr[from_y:, :, :]
+    bg = np.median(body.reshape(-1, 3), axis=0)
+    diff = np.abs(body - bg).sum(axis=2)
+    cols = np.where(diff.max(axis=0) > 40)[0]
+    return int(cols[0]), int(cols[-1])
 
-    The top-left pixel sits in the header, which is not the page ground, so
-    take the most common colour along the bottom edge instead.
+
+def tab_bar_top(arr, left, right):
+    """First row of real content inside the column, below the page header.
+
+    The header and the presentation-mode banner span the full width, so they
+    are excluded by searching only within the column, starting below them.
     """
-    w, h = im.size
-    strip = im.crop((0, h - 2, w, h)).resize((w // 8, 1), Image.NEAREST)
-    colours = strip.getcolors(maxcolors=w) or []
-    return max(colours)[1] if colours else (13, 13, 15)
+    strip = arr[:, left:right, :]
+    bg = np.median(strip.reshape(-1, 3), axis=0)
+    diff = np.abs(strip - bg).sum(axis=2)
+    rows = np.where(diff.max(axis=1) > 40)[0]
+    rows = rows[rows > 100]           # clear the header band
+    return int(rows[0]) if len(rows) else 0
 
 
 def convert(src, dst):
-    im = Image.open(src)
-    im = im.convert("RGB")  # flattens alpha; the store rejects it
-    w, h = im.size
+    im = Image.open(src).convert("RGB")   # flattens alpha; the store rejects it
+    arr = np.asarray(im).astype(int)
+    iw, ih = im.size
 
-    scaled_h = round(h * W / w)
-    im = im.resize((W, scaled_h), Image.LANCZOS)
+    left, right = content_column(arr)
+    left = max(0, left - GUTTER)
+    right = min(iw, right + GUTTER)
 
-    if scaled_h > H:
-        im = im.crop((0, 0, W, H))  # anchor top, keep header and first rows
-        note = f"cropped {scaled_h - H}px from the bottom"
-    elif scaled_h < H:
-        pad = H - scaled_h
-        top = pad // 2
-        canvas = Image.new("RGB", (W, H), background(im))
-        canvas.paste(im, (0, top))
-        im = canvas
-        note = f"padded {top}px top / {pad - top}px bottom"
-    else:
-        note = "exact fit"
+    top = max(0, tab_bar_top(arr, left, right) - TOP_PAD)
 
+    cw = right - left
+    ch = round(cw * H / W)
+    if top + ch > ih:                      # not enough page below: sit on the bottom
+        top = max(0, ih - ch)
+    if ch > ih:                            # page shorter than the crop: take it all
+        ch = ih
+        cw = round(ch * W / H)
+        right = min(iw, left + cw)
+        cw = right - left
+
+    im = im.crop((left, top, left + cw, top + ch)).resize((W, H), Image.LANCZOS)
     im.save(dst, "PNG", optimize=True)
-    return note, dst.stat().st_size
+    return cw, round(W / cw * 100)
 
 
 def main():
     OUT.mkdir(exist_ok=True)
-    made = 0
     for i, stem in enumerate(WANTED, 1):
         src = DIR / f"{stem}.jpg"
         if not src.exists():
             print(f"  MISSING  {src.name}")
             continue
         dst = OUT / f"{i}-{stem}.png"
-        note, size = convert(src, dst)
-        print(f"  {dst.name:<22} 1280x800  {size // 1024:>4}KB  ({note})")
-        made += 1
-    print(f"\n{made} screenshot(s) written to webstore-assets/screenshots/listing/")
+        cw, pct = convert(src, dst)
+        kb = dst.stat().st_size // 1024
+        print(f"  {dst.name:<22} 1280x800  {kb:>4}KB  (from {cw}px column, UI at {pct}%)")
 
 
 if __name__ == "__main__":
