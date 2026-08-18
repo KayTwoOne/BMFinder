@@ -1,7 +1,7 @@
 <div align="center">
 
 <a href="https://dotkay.dev/">
-  <img src="assets/banner.png" alt="BMFinder — see when the players you follow are online on the servers you track" width="100%">
+  <img src="assets/banner.png" alt="BMFinder -- see when the players you follow are online on the servers you track" width="100%">
 </a>
 
 <br>
@@ -34,7 +34,7 @@ Players change their in-game name constantly. You finish a good round with
 someone, go looking for them a week later, and the name you remember is gone.
 
 BMFinder lets you save that person under a label that means something to
-**you** — "the medic from Sunday", "Dave's mate" — and tells you when they turn
+**you** -- "the medic from Sunday", "Dave's mate" -- and tells you when they turn
 up again on a server you follow.
 
 Everything stays on your own device. There is no BMFinder account, no BMFinder
@@ -73,7 +73,7 @@ server, no analytics, and no third party of any kind.
 - **Track servers you play on** and see who is on them right now.
 - **Build a picture of who plays when.** Turn on live updates while the
   dashboard is open and BMFinder records presence over time.
-- **Find someone by name**, including multi-word and decorated names — the
+- **Find someone by name**, including multi-word and decorated names -- the
   matcher handles the unicode-heavy tags players decorate themselves with.
 - **Import and export** on your terms. Choose exactly which fields leave your
   machine, and choose exactly which parts of a backup come back in.
@@ -98,7 +98,7 @@ acting on it is your responsibility. See
 
 ### From the Chrome Web Store
 
-Not yet published — submission is pending. This section will carry the store
+Not yet published -- submission is pending. This section will carry the store
 link once the listing is live.
 
 ### From source, as an unpacked extension
@@ -136,11 +136,11 @@ Every other access path was tested and closed:
 
 | Approach | Result |
 | --- | --- |
-| Public REST API | `403 — A subscription is required to use the API.` Anonymous access closed in July 2026. |
+| Public REST API | `403 -- A subscription is required to use the API.` Anonymous access closed in July 2026. |
 | Cloudflare Worker → API | `403 error code: 1106`. Worker subrequests carry an unremovable `CF-Worker` header, rejected before auth is evaluated. |
 | Session cookie against the API | No help. The refusal happens before authentication. |
 | Scripted HTML scraping | Works for roughly twenty requests, then `403 Cf-Mitigated: challenge` indefinitely. |
-| Internal `/_api/` from page context | `401 — Missing API request signature.` Signing lives in their module code; reproducing it means defeating an anti-bot control, which this project will not do. |
+| Internal `/_api/` from page context | `401 -- Missing API request signature.` Signing lives in their module code; reproducing it means defeating an anti-bot control, which this project will not do. |
 
 A real browser passes all of that, because it already holds Cloudflare clearance
 and carries a legitimate session. That is the whole reason this is an extension.
@@ -168,20 +168,16 @@ Full documents: [privacy policy and terms](extension/pages/policy.html) ·
 
 ```
 extension/          The extension. This is the product.
-  background/       MV3 service worker — scheduling, tab orchestration, messaging
+  background/       MV3 service worker -- scheduling, tab orchestration, messaging
   content/          Content script that reads rendered BattleMetrics pages
   dashboard/        Options page: the main UI
   popup/            Toolbar popup
   pages/            First-run consent gate, privacy policy, about
   lib/              Shared modules (see Architecture)
-  fonts/            Bundled woff2 — no external font requests
+  fonts/            Bundled woff2 -- no external font requests
   icons/            Extension icons, 16–128px
   test/             Node test-runner suites
 
-webstore/           Generated. Byte-identical to extension/ minus dev files.
-                    This is what gets zipped and uploaded. Never edit directly.
-
-webstore-assets/    Store listing copy, permission justifications, screenshots
 assets/             Repo banner and source icons
 docs/               Design spec, privacy policy, public release audit
 
@@ -191,7 +187,7 @@ verify-extension.mjs   Static checks: duplicate IDs, dead references, vocabulary
 
 ## Architecture
 
-**Service worker** ([`background/worker.js`](extension/background/worker.js)) —
+**Service worker** ([`background/worker.js`](extension/background/worker.js)) --
 owns all persistence and scheduling. Message handlers live in a single dispatch
 map. Alarms drive live updates, and `applyAlarm({ restart })` distinguishes a
 genuine interval change from a worker reconnect, so a countdown is never
@@ -199,13 +195,13 @@ silently reset. Dashboard presence is detected over `chrome.runtime.connect`,
 so live updates stop the moment the dashboard closes.
 
 **Content script** ([`content/reader.js`](extension/content/reader.js) +
-[`lib/extract.js`](extension/lib/extract.js)) — reads the rendered DOM and
+[`lib/extract.js`](extension/lib/extract.js)) -- reads the rendered DOM and
 reports structured data upward. It never mutates the host page. The worker
 accepts only an explicit allowlist of message types from it
 (`CONTENT_SCRIPT_MESSAGES`), so a compromised page cannot reach privileged
 handlers.
 
-**Dashboard** ([`dashboard/`](extension/dashboard/)) — the whole UI. Tile and
+**Dashboard** ([`dashboard/`](extension/dashboard/)) -- the whole UI. Tile and
 list views over the same data, a search tab, live activity, and data controls.
 Plain ES modules, no framework, no build step.
 
@@ -215,7 +211,7 @@ Plain ES modules, no framework, no build step.
 | --- | --- |
 | [`lib/db.js`](extension/lib/db.js) | IndexedDB wrapper. Schema, migrations, retention pruning, selective import. |
 | [`lib/extract.js`](extension/lib/extract.js) | Parses BattleMetrics DOM into structured records. |
-| [`lib/match.js`](extension/lib/match.js) | Name matching and scoring — handles decoration, separators, case, multi-word. |
+| [`lib/match.js`](extension/lib/match.js) | Name matching and scoring -- handles decoration, separators, case, multi-word. |
 | [`lib/relationships.js`](extension/lib/relationships.js) | The relationship vocabulary and its migrations from older terms. |
 | [`lib/transfer.js`](extension/lib/transfer.js) | Import/export formats, field selection, backup summarising. |
 | [`lib/theme.js`](extension/lib/theme.js) | Theme resolution shared across the dashboard and pages. |
@@ -237,7 +233,7 @@ IndexedDB, database version 5, eight stores:
 
 Exports come in three shapes: a **BMFinder list**
 (`{ format: "bmfinder-list" }`), **CSV**, and a **full backup**. On import you
-pick which parts to restore — people, servers, activity, settings — and whether
+pick which parts to restore -- people, servers, activity, settings -- and whether
 to **merge** (adds only what is absent, never overwrites) or **replace** (clears
 the selected stores first). Merge is the default; replace requires explicit
 acknowledgement.
@@ -253,14 +249,14 @@ Requires Node 20 or newer.
 npm install
 ```
 
-Run the test suite — 74 tests covering matching, relationships, retention,
+Run the test suite -- 74 tests covering matching, relationships, retention,
 transfer formats, and selective import:
 
 ```bash
 npm test
 ```
 
-Run the static checks — duplicate element IDs, references to removed elements,
+Run the static checks -- duplicate element IDs, references to removed elements,
 banned vocabulary, placeholder text:
 
 ```bash
@@ -278,7 +274,7 @@ destructive database paths can be exercised for real rather than mocked.
 
 ### Working on the extension
 
-Edit files in [`extension/`](extension/) only. Never edit `webstore/` — it is
+Edit files in [`extension/`](extension/) only. Never edit `webstore/` -- it is
 generated output and your changes will be overwritten. Reload the extension from
 `chrome://extensions` to pick up changes; the service worker may need an
 explicit reload for background changes.
@@ -297,8 +293,8 @@ This regenerates `webstore/` from `extension/`, then verifies:
 - every permission has a written justification
 - the store listing quotes the manifest description exactly
 
-Then zip the **contents** of `webstore/` — `manifest.json` must sit at the zip
-root — and upload that.
+Then zip the **contents** of `webstore/` -- `manifest.json` must sit at the zip
+root -- and upload that.
 
 To cut a release, bump `version` in **both** `extension/manifest.json` and
 `webstore/manifest.json`, run `npm run check`, then package and upload.
@@ -306,7 +302,7 @@ To cut a release, bump `version` in **both** `extension/manifest.json` and
 ## Compatibility
 
 Chromium Manifest V3, so it runs in Chrome, Brave, and Edge. Firefox is not
-supported — it uses a different extension model and BMFinder has not been
+supported -- it uses a different extension model and BMFinder has not been
 ported.
 
 ## Contributing
@@ -324,19 +320,19 @@ Issues and pull requests are welcome, with two firm boundaries:
 
 Run `npm run check` before opening a pull request.
 
-Contributions are accepted under the [Apache License 2.0](LICENSE) — by opening
+Contributions are accepted under the [Apache License 2.0](LICENSE) -- by opening
 a pull request you agree your work ships under those terms.
 
 ## Licence
 
-[Apache License 2.0](LICENSE) — you may use, modify and redistribute this code,
+[Apache License 2.0](LICENSE) -- you may use, modify and redistribute this code,
 including commercially, provided you keep the copyright notice, state your
 changes, and include a copy of the licence.
 
 Two things the licence does not cover, both spelled out in [NOTICE](NOTICE):
 
 - **The names.** Apache 2.0 grants no trademark rights. "BMFinder" and "dotKay"
-  stay with the author — if you publish a fork, give it a different name.
+  stay with the author -- if you publish a fork, give it a different name.
 - **The bundled fonts.** Chakra Petch and IBM Plex Sans live in
   [`extension/fonts/`](extension/fonts/) under the SIL Open Font License 1.1,
   not Apache 2.0.
