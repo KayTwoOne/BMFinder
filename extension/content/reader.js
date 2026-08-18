@@ -265,11 +265,24 @@
        and timed out into an empty result on every single server search. */
     if (msg && msg.type === "READ_SERVERSEARCH") {
       (async () => {
+        /* Two phases, because a small number of links is ambiguous: it is either
+           a suggestion rail that painted before the results, or a search that
+           genuinely matched one or two servers. Nothing on the page separates
+           those, but elapsed time does.
+
+           While results could still be rendering, insist on enough links to be
+           unmistakably a result list. Once the page has had time to settle,
+           accept however few there are - by then, few is the answer rather than
+           a symptom. Without the second phase a narrow search that matched one
+           server would report nothing at all. */
+        const SETTLE_MS = 3000;
         const deadline = Date.now() + 12000;
+        const settleAt = Date.now() + SETTLE_MS;
+
         let rows = EX.extractServerSearch(document);
         while (!rows.length && Date.now() < deadline) {
           await sleep(POLL_MS);
-          rows = EX.extractServerSearch(document);
+          rows = EX.extractServerSearch(document, Date.now() >= settleAt ? 1 : undefined);
         }
         respond({ servers: rows, diag: rows.length ? null : pageDiag() });
       })();

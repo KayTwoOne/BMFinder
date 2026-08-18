@@ -439,29 +439,114 @@
     return [];
   }
 
+  /* serverLinks has to reject far more than playerLinks does. A player page
+     links to itself dozens of times, but those are all THIS player; a server
+     SEARCH page renders the real results alongside a nav bar, a footer and
+     often a "popular servers" rail, and those belong to OTHER servers
+     entirely, not chrome around the same answer. Matching the path shape is
+     not enough to tell them apart, so this also has to ask WHERE on the page
+     a link lives. */
+
+  /** True when an anchor sits inside page chrome. Cheap and free when
+   *  BattleMetrics happens to use the semantic tag for its sidebar, but that
+   *  alone cannot be trusted: nothing requires them to. The density grouping
+   *  below is what catches the rest. */
+  function inServerChrome(a) {
+    return !!(a.closest && a.closest("nav, aside, header, footer"));
+  }
+
+  /** The nearest ancestor an anchor shares with at least one OTHER candidate.
+   *  A rendered results list puts its links as siblings under one wrapping
+   *  element, so walking up from any of them converges on that same element.
+   *  A sidebar's links converge the same way, just on a smaller container of
+   *  their own - which is what makes grouping by this value useful. The walk
+   *  stops before the document's own body/root: without that ceiling, a link
+   *  with no real neighbour would "converge" with every other unrelated link
+   *  on the page purely because the root contains everything, turning
+   *  unrelated chrome into one fake group. */
+  function nearestSharedAncestor(a, candidates, doc) {
+    const ceiling = new Set([doc && doc.body, doc && doc.documentElement].filter(Boolean));
+    let el = a.parentElement;
+    while (el && !ceiling.has(el)) {
+      let count = 0;
+      for (const other of candidates) if (el.contains(other)) count++;
+      if (count > 1) return el;
+      el = el.parentElement;
+    }
+    return a.parentElement || a;
+  }
+
+  /** Keep only the biggest group of candidates sharing a nearestSharedAncestor.
+   *  The results list is the container holding the most server links; a
+   *  sidebar or a "popular servers" rail holds a handful. Fewer than 3 in the
+   *  winning group is treated as no group at all: the only candidates that
+   *  exist before results have painted ARE the sidebar's, and a real result
+   *  set is never that thin, so returning empty here is what keeps the
+   *  caller's poll loop waiting instead of locking onto chrome. */
+  function densestServerGroup(candidates, doc, min) {
+    const groups = new Map();
+    for (const a of candidates) {
+      const root = nearestSharedAncestor(a, candidates, doc);
+      if (!groups.has(root)) groups.set(root, []);
+      groups.get(root).push(a);
+    }
+    let best = [];
+    for (const group of groups.values()) if (group.length > best.length) best = group;
+    return best.length >= min ? best : [];
+  }
+
   /** Server result links, same bare-path rule as players. Captures the game slug
-   *  from the href so tracked servers can be reopened at a URL that resolves. */
-  function serverLinks(doc) {
+   *  from the href so tracked servers can be reopened at a URL that resolves.
+   *
+   *  Unscoped, this always finds SOME server link - a sidebar, a "popular
+   *  servers" panel, nav or footer - which used to make extraction "succeed"
+   *  on the very first poll tick, before the real results had rendered, and
+   *  report whatever static links were already sitting on the page. Two
+   *  different searches were proven in the field to return the identical ten
+   *  IDs because of exactly this. Scoping to the densest group of surviving
+   *  links (see densestServerGroup above) means a page whose results have
+   *  not painted yet correctly yields nothing instead of yielding the wrong
+   *  thing.
+   *
+   *  `min` is how many links the winning group must hold to be believed, and it
+   *  exists because "two links" is genuinely ambiguous: it is either a rail that
+   *  rendered early, or a search that really did match two servers. The page
+   *  alone cannot say which. The caller can, because it knows how long it has
+   *  been waiting - so reader.js asks strictly at first and leniently once the
+   *  page has had time to settle, rather than this guessing and being wrong for
+   *  every narrow search. */
+  function serverLinks(doc, min = 3) {
     const base = (doc && doc.baseURI) || "https://www.battlemetrics.com/";
-    const seen = new Set();
-    const out = [];
+    // Collected as anchor elements, not plain objects, because the grouping
+    // step below needs each hit's position on the page - information that is
+    // gone the moment a hit is reduced to {id, name, game}.
+    const candidates = [];
     for (const a of doc.querySelectorAll('a[href*="/servers/"]')) {
+      if (inServerChrome(a)) continue;
       const raw = a.getAttribute("href") || "";
       let u;
       try { u = new URL(raw, base); } catch { continue; }
       if (u.search) continue;
       const m = u.pathname.match(/^\/servers\/([a-z0-9]+)\/(\d+)$/i);
       if (!m) continue;
-      const game = m[1], id = m[2];
       const name = stripTrailers(a.textContent);
-      if (!name || seen.has(id)) continue;
-      seen.add(id);
-      out.push({ id, name, game });
+      if (!name) continue;
+      candidates.push({ el: a, id: m[2], name, game: m[1] });
+    }
+
+    const winners = new Set(densestServerGroup(candidates.map((c) => c.el), doc, min));
+
+    const seen = new Set();
+    const out = [];
+    for (const c of candidates) {
+      if (!winners.has(c.el) || seen.has(c.id)) continue;
+      seen.add(c.id);
+      out.push({ id: c.id, name: c.name, game: c.game });
     }
     return out;
   }
 
-  const extractServerSearch = (doc) => serverLinks(doc);
+  const extractServerSearch = (doc, min) => serverLinks(doc, min);
 
   /** Report whether this page produced what its type promises. */
   function selfTest(doc, url) {

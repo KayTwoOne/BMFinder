@@ -7,6 +7,10 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import vm from "node:vm";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import {
   matchScore, normalize, searchTerm, unsearchable, usesWildcard,
   rankSearchResults, rankServerResults, discriminatingTerm, confidenceScore, EVIDENCE,
@@ -17,6 +21,24 @@ import {
 import {
   clampRetentionDays, RETENTION_DEFAULT_DAYS, RETENTION_MIN_DAYS, RETENTION_MAX_DAYS,
 } from "../lib/db.js";
+
+/* extract.js is a classic script, not a module - it attaches itself to
+   globalThis.BMExtract rather than exporting anything import can see (see the
+   comment at the top of that file for why). Running its source through vm
+   against a throwaway context reaches it without turning it into something
+   it explicitly is not, and without adding a dependency just to fake a DOM. */
+const extractSrc = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), "..", "lib", "extract.js"), "utf8"
+);
+// A bare vm context has the ECMAScript intrinsics but none of the host globals
+// serverLinks needs at call time - notably URL, used to resolve every href it
+// reads. Without it every anchor throws inside extract.js's own try/catch and
+// silently disappears, which reads exactly like "found nothing" and would
+// have hidden the real bug this file exists to catch.
+const extractSandbox = { URL };
+vm.createContext(extractSandbox);
+vm.runInContext(extractSrc, extractSandbox);
+const { serverLinks } = extractSandbox.BMExtract;
 
 /* ---- relationships ------------------------------------------------------- */
 
@@ -423,4 +445,206 @@ test("narrowing still ranks against the full name the user typed", () => {
     { id: "3", name: "CodeFourGaming - King of the Hill EU#1" },
   ];
   assert.equal(rankServerResults("CodeFourGaming - King of the Hill EU#1", rows)[0].id, "3");
+});
+
+/* ---- server search extraction ---------------------------------------------
+   serverLinks(doc) used to match a[href*="/servers/"] anywhere on the page,
+   so a sidebar or a "popular servers" rail always produced SOME hit before
+   the real results had rendered. content/reader.js polls until extraction
+   returns something non-empty, so that first, wrong hit was mistaken for a
+   completed render and the poll stopped immediately - two different searches
+   were proven in the field to come back with the identical ten IDs because
+   of exactly this. These exercise the fix: excluding nav/aside/header/footer
+   ancestors, then keeping only the densest cluster of links on the page.
+
+   There is no real DOM available here and none is worth adding as a
+   dependency for one function, so this builds just enough of one: elements
+   with attributes, a parent/child tree, and the handful of DOM methods
+   serverLinks and its helpers actually call - querySelectorAll, closest,
+   contains. */
+
+class El {
+  constructor(tag) {
+    this.tagName = String(tag).toUpperCase();
+    this._attrs = new Map();
+    this.children = [];
+    this.parentElement = null;
+    this._text = "";
+  }
+  get textContent() { return this._text + this.children.map((c) => c.textContent).join(""); }
+  set textContent(v) { this._text = v; }
+  setAttribute(k, v) { this._attrs.set(k, String(v)); }
+  getAttribute(k) { return this._attrs.has(k) ? this._attrs.get(k) : null; }
+  append(...kids) {
+    for (const k of kids) { k.parentElement = this; this.children.push(k); }
+    return this;
+  }
+  contains(node) {
+    for (let n = node; n; n = n.parentElement) if (n === this) return true;
+    return false;
+  }
+  closest(selector) {
+    const tags = selector.split(",").map((s) => s.trim().toUpperCase());
+    for (let el = this; el; el = el.parentElement) if (tags.includes(el.tagName)) return el;
+    return null;
+  }
+  // Only the one attribute-contains form extract.js actually uses is needed here.
+  querySelectorAll(selector) {
+    const m = selector.match(/^([a-zA-Z0-9]*)\[([a-zA-Z-]+)([*^$]?)="([^"]*)"\]$/);
+    const test = (el) => {
+      if (!m) return el.tagName === selector.toUpperCase();
+      const [, tag, attr, op, val] = m;
+      if (tag && el.tagName !== tag.toUpperCase()) return false;
+      const av = el.getAttribute(attr);
+      if (av == null) return false;
+      if (op === "*") return av.includes(val);
+      if (op === "^") return av.startsWith(val);
+      if (op === "$") return av.endsWith(val);
+      return av === val;
+    };
+    const out = [];
+    const walk = (node) => { for (const c of node.children) { if (test(c)) out.push(c); walk(c); } };
+    walk(this);
+    return out;
+  }
+}
+
+// A minimal document: a root node that also stands in for body/documentElement,
+// so the "don't merge unrelated links at the document root" ceiling in
+// nearestSharedAncestor has something real to stop at, same as it would in a
+// real DOM.
+function fakeDoc() {
+  const d = new El("#document");
+  d.baseURI = "https://www.battlemetrics.com/servers";
+  d.body = d;
+  return d;
+}
+
+function anchor(href, text) {
+  const a = new El("a");
+  a.setAttribute("href", href);
+  a.textContent = text;
+  return a;
+}
+const srvAnchor = (n, game = "arma3") => anchor(`/servers/${game}/${n}`, `Server ${n}`);
+
+// extract.js runs inside its own vm context, so the plain arrays and objects
+// serverLinks returns are built from THAT context's Array/Object, not this
+// file's. They compare fine element-by-element but deepStrictEqual also
+// checks prototypes, so a cross-realm array of identical content still fails
+// as "not reference-equal". Round-tripping through JSON rebuilds the result
+// with this file's own Array/Object, which is all deepStrictEqual needs.
+const plain = (v) => JSON.parse(JSON.stringify(v));
+
+test("a sidebar with a couple of links loses to a ten-link results list", () => {
+  const root = fakeDoc();
+  const sidebar = new El("div").append(srvAnchor(11), srvAnchor(12));
+  const results = new El("div");
+  for (let n = 1; n <= 10; n++) results.append(new El("div").append(srvAnchor(n)));
+  root.append(sidebar, results);
+
+  const rows = plain(serverLinks(root));
+  assert.equal(rows.length, 10);
+  assert.deepEqual(rows.map((r) => r.id).sort(), Array.from({ length: 10 }, (_, i) => String(i + 1)).sort());
+  assert.ok(!rows.some((r) => r.id === "11" || r.id === "12"), "the sidebar's own servers leaked into the results");
+});
+
+test("a page with only sidebar links (results not yet rendered) yields nothing", () => {
+  const root = fakeDoc();
+  const sidebar = new El("div").append(srvAnchor(1), srvAnchor(2));
+  root.append(sidebar);
+
+  // This is the actual bug: on the first poll tick, before the results list
+  // exists, the only candidates on the page belong to the sidebar. Returning
+  // them as if they were results is what let a stale set win the race.
+  assert.deepEqual(plain(serverLinks(root)), []);
+});
+
+test("links inside nav, aside and footer are excluded outright, even when they outnumber the real results", () => {
+  const root = fakeDoc();
+  const nav = new El("nav");
+  for (let n = 90; n < 98; n++) nav.append(srvAnchor(n)); // 8 links: more than the real results below
+  const aside = new El("aside").append(srvAnchor(200), srvAnchor(201));
+  const footer = new El("footer").append(srvAnchor(210));
+  const results = new El("div");
+  for (let n = 1; n <= 5; n++) results.append(new El("div").append(srvAnchor(n)));
+  root.append(nav, aside, footer, results);
+
+  const rows = plain(serverLinks(root));
+  // If chrome exclusion were missing, the 8-link nav would out-mass the 5-link
+  // results and win the density grouping outright.
+  assert.deepEqual(rows.map((r) => r.id).sort(), ["1", "2", "3", "4", "5"]);
+});
+
+test("the returned shape is exactly {id, name, game}, unchanged by the fix", () => {
+  const root = fakeDoc();
+  const results = new El("div");
+  for (let n = 1; n <= 3; n++) results.append(new El("div").append(anchor(`/servers/rust/${n}`, `Rust Server ${n}`)));
+  root.append(results);
+
+  const rows = plain(serverLinks(root));
+  assert.equal(rows.length, 3);
+  for (const r of rows) assert.deepEqual(Object.keys(r).sort(), ["game", "id", "name"]);
+  assert.deepEqual(rows[0], { id: "1", name: "Rust Server 1", game: "rust" });
+});
+
+test("existing per-anchor validation is untouched: no query string, a game slug is required, dedup by id", () => {
+  const root = fakeDoc();
+  const results = new El("div");
+  results.append(new El("div").append(anchor("/servers/123", "Bare id, no game slug")));
+  results.append(new El("div").append(anchor("/servers/arma3/5?tab=info", "Carries a query string")));
+  results.append(new El("div").append(anchor("/servers/arma3/1", "First")));
+  results.append(new El("div").append(anchor("/servers/arma3/1", "Duplicate of the first")));
+  results.append(new El("div").append(anchor("/servers/arma3/2", "Second")));
+  root.append(results);
+
+  assert.deepEqual(plain(serverLinks(root)).map((r) => r.id), ["1", "2"]);
+});
+
+/* The density floor is a guess about TIMING, not about correctness, so the
+   caller has to be able to relax it. reader.js polls strictly while results
+   could still be painting, then leniently once the page has settled - without
+   which a search matching one or two servers would report nothing at all. */
+
+test("a two-server result is withheld while the page could still be painting", () => {
+  const root = fakeDoc();
+  const results = new El("div");
+  results.append(new El("div").append(anchor("/servers/arma3/1", "Only match")));
+  results.append(new El("div").append(anchor("/servers/arma3/2", "Other match")));
+  root.append(results);
+
+  assert.deepEqual(plain(serverLinks(root)), [],
+    "strict by default: two links could be a rail that rendered early");
+});
+
+test("the same two-server result is accepted once the caller says the page settled", () => {
+  const root = fakeDoc();
+  const results = new El("div");
+  results.append(new El("div").append(anchor("/servers/arma3/1", "Only match")));
+  results.append(new El("div").append(anchor("/servers/arma3/2", "Other match")));
+  root.append(results);
+
+  assert.deepEqual(plain(serverLinks(root, 1)).map((r) => r.id), ["1", "2"]);
+});
+
+test("a single genuine match survives a settled read", () => {
+  const root = fakeDoc();
+  const results = new El("div");
+  results.append(new El("div").append(anchor("/servers/arma3/7", "CodeFourGaming - King of the Hill EU#1")));
+  root.append(results);
+
+  const rows = plain(serverLinks(root, 1));
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].name, "CodeFourGaming - King of the Hill EU#1");
+});
+
+test("relaxing the floor does not let page chrome back in", () => {
+  const root = fakeDoc();
+  const nav = new El("nav");
+  nav.append(anchor("/servers/arma3/90", "Browse servers"));
+  nav.append(anchor("/servers/arma3/91", "Popular"));
+  root.append(nav);
+
+  assert.deepEqual(plain(serverLinks(root, 1)), [],
+    "nav is excluded before the floor is ever consulted");
 });

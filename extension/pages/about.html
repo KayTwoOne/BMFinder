@@ -83,6 +83,12 @@
 
         <h4 class="change-kind kind-fix">Fixed</h4>
         <ul>
+          <li><b>Server search returned the same handful of servers no matter
+            what you typed.</b> BMFinder was reading the wrong part of the page:
+            it picked up whichever server links happened to be sitting there
+            already, such as a suggestions panel, and stopped before the real
+            results had finished loading. It now waits for the results
+            themselves, so what you searched for is what you get.</li>
           <li><b>Searching for a quiet server could still miss it.</b> Results
             came back ordered by how busy each server was, so a near-empty one
             could be absent altogether rather than merely far down. BMFinder now
