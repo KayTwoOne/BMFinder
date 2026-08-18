@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "BMFinder",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "See when the players you follow are online on the game servers you track.",
   "permissions": ["storage", "tabs", "alarms"],
   "optional_permissions": ["bookmarks"],

@@ -443,3 +443,77 @@ a:hover { text-decoration: underline; }
 .consent button:focus-visible { outline: 2px solid var(--md-primary); outline-offset: 3px; }
 .consent-note { margin: 0; font-size: var(--t-meta); color: var(--md-on-surface-variant); }
 .consent-note.err { color: var(--md-error); }
+
+/* ---- changelog -------------------------------------------------------------
+   Releases read top to bottom, newest first, each split into three kinds of
+   change. The kind is carried by a coloured label AND by its wording, never by
+   colour alone: added, improved and fixed have to stay distinguishable to
+   anyone who cannot separate the three hues. */
+.changelog { max-width: 78ch; }
+
+.release {
+  padding: var(--s-5);
+  margin: var(--s-4) 0 0;
+  background: var(--md-surface-container);
+  border-radius: var(--r-lg);
+  border-left: 3px solid var(--md-outline-variant);
+}
+/* The version being run is the one a reader is checking against, so it gets the
+   accent edge and the rest stay quiet. */
+.release.is-current { border-left-color: var(--md-primary); }
+
+.release-head {
+  display: flex; align-items: baseline; flex-wrap: wrap;
+  gap: var(--s-3); margin-bottom: var(--s-4);
+}
+.release-head h3 {
+  margin: 0; font-family: var(--font-display); font-weight: 700;
+  font-size: var(--t-lead); color: var(--md-on-surface);
+  font-variant-numeric: tabular-nums;
+}
+.release-head time {
+  font-size: var(--t-meta); color: var(--md-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+}
+.release-tag {
+  margin-left: auto;
+  padding: 2px 9px; border-radius: var(--r-full);
+  font-size: var(--t-eyebrow); font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  background: var(--md-primary-container); color: var(--md-on-primary-container);
+}
+.release-tag.is-quiet {
+  background: transparent; color: var(--md-on-surface-variant);
+  border: 1px solid var(--md-outline-variant);
+}
+
+.change-kind {
+  display: flex; align-items: center; gap: 7px;
+  margin: var(--s-4) 0 var(--s-2);
+  font-size: var(--t-eyebrow); font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--md-on-surface-variant);
+}
+.change-kind:first-of-type { margin-top: 0; }
+/* A dot rather than a background: it marks the group without turning the
+   heading into a button-like thing. */
+.change-kind::before {
+  content: ""; flex: 0 0 auto;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--md-outline);
+}
+.change-kind.kind-new::before { background: var(--md-success); }
+.change-kind.kind-maint::before { background: var(--md-warning); }
+.change-kind.kind-fix::before { background: var(--md-primary); }
+
+.release ul {
+  margin: 0; padding-left: 1.15em;
+  display: flex; flex-direction: column; gap: var(--s-2);
+}
+.release li { line-height: 1.6; color: var(--md-on-surface); }
+.release li b { color: var(--md-on-surface); }
+
+@media (max-width: 560px) {
+  .release { padding: var(--s-4); }
+  .release-tag { margin-left: 0; }
+}

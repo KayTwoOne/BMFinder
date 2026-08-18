@@ -31,9 +31,21 @@ function fillSchema() {
   setText('about-schema', String(DB_VERSION));
 }
 
+/* The extractor version IS a date, stored as YYYY-MM-DD because that sorts and
+   compares correctly in code. Showing it in that form on a page read by people
+   in the UK invites the 08/13 ambiguity, so it is reformatted for display only.
+   The stored value is untouched: anything comparing versions still gets the
+   sortable form. A value that is not a date is printed as-is rather than
+   mangled, since a future scheme should not silently render as nonsense. */
+function ukDate(value) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ''));
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : String(value || '');
+}
+
 function fillExtractor() {
   const ext = globalThis.BMExtract;
-  setText('about-extractor', (ext && ext.EXTRACTOR_VERSION) || 'unknown');
+  const raw = ext && ext.EXTRACTOR_VERSION;
+  setText('about-extractor', raw ? ukDate(raw) : 'unknown');
 }
 
 fillVersion();

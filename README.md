@@ -11,7 +11,7 @@ A Chromium extension that keeps everything on your own machine.
 
 <br>
 
-<img alt="Version 2.0.1" src="https://img.shields.io/badge/version-2.0.1-F5842B?style=for-the-badge&labelColor=171210">
+<img alt="Version 2.0.2" src="https://img.shields.io/badge/version-2.0.2-F5842B?style=for-the-badge&labelColor=171210">
 <img alt="Manifest V3" src="https://img.shields.io/badge/manifest-V3-FFC814?style=for-the-badge&labelColor=171210">
 <img alt="74 tests passing" src="https://img.shields.io/badge/tests-74%20passing-16A34A?style=for-the-badge&labelColor=171210">
 <img alt="Telemetry: none" src="https://img.shields.io/badge/telemetry-none-E8433A?style=for-the-badge&labelColor=171210">

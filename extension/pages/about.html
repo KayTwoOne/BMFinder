@@ -59,6 +59,122 @@
       </dl>
     </section>
 
+    <!-- What's new. Newest release first, and each one split into what was
+         added, what was improved, and what was broken and is not any more.
+         Written for the person using the extension, not for whoever wrote it:
+         no file names, no function names, no version numbers of internal
+         parts. Dates are UK order throughout. -->
+    <section class="about-section changelog" aria-labelledby="changelog-heading">
+      <h2 id="changelog-heading">What&rsquo;s new</h2>
+      <p>Every change that affects what you see or do in BMFinder, newest first.</p>
+
+      <article class="release is-current" aria-labelledby="rel-202">
+        <header class="release-head">
+          <h3 id="rel-202">2.0.2</h3>
+          <time datetime="2026-08-18">18/08/2026</time>
+          <span class="release-tag">Current</span>
+        </header>
+
+        <h4 class="change-kind kind-new">Added</h4>
+        <ul>
+          <li>This list. You can now see what changed in each update without
+            leaving the extension.</li>
+        </ul>
+
+        <h4 class="change-kind kind-fix">Fixed</h4>
+        <ul>
+          <li>The extractor date on this page read as <b>2026-07-23</b>, which is
+            easy to misread as a month and a day. It now reads
+            <b>23/07/2026</b>, like every other date here.</li>
+        </ul>
+      </article>
+
+      <article class="release" aria-labelledby="rel-201">
+        <header class="release-head">
+          <h3 id="rel-201">2.0.1</h3>
+          <time datetime="2026-08-18">18/08/2026</time>
+        </header>
+
+        <h4 class="change-kind kind-new">Added</h4>
+        <ul>
+          <li><b>Export people and servers separately.</b> Each has its own tick
+            box in the export window. If you want to share the servers you play
+            on without handing over your list of people, you can now do exactly
+            that, in either file format.</li>
+          <li><b>Advice on getting better search results</b>, on the Find players
+            screen. It explains why following your servers first makes the
+            difference, and why a shorter search often finds more.</li>
+          <li><b>Search results now show how well each name matched</b>, as a
+            percentage, so a close guess is distinguishable from an exact hit.</li>
+        </ul>
+
+        <h4 class="change-kind kind-maint">Improved</h4>
+        <ul>
+          <li><b>Presentation mode now blurs the labels you gave people</b>, not
+            just their in-game names, and does so on every screen. It was only
+            covering part of the People tab, which made the Live activity screen
+            impossible to share safely.</li>
+          <li><b>Server search results are ordered by how well the name matches</b>
+            what you typed, rather than by how busy the server is.</li>
+        </ul>
+
+        <h4 class="change-kind kind-fix">Fixed</h4>
+        <ul>
+          <li><b>Searching for a server by name could miss it entirely.</b> If you
+            typed the parts of the name you remembered, such as the community and
+            the number, and the real name had other words in between, nothing came
+            back. The search now looks for your words anywhere in the name.</li>
+          <li><b>Sharing only your servers warned you about player information.</b>
+            The warning appeared even though no player details were in the file.</li>
+          <li><b>Server links in an activity export pointed at the wrong place</b>
+            for anything that was not an Arma 3 server, so the link did not open.</li>
+          <li><b>Long dates were cut off</b> in the summary boxes on the Data and
+            privacy screen.</li>
+          <li><b>The export button no longer waits for you to press it</b> to tell
+            you nothing is selected. It is simply unavailable until there is
+            something to export.</li>
+        </ul>
+      </article>
+
+      <article class="release" aria-labelledby="rel-200">
+        <header class="release-head">
+          <h3 id="rel-200">2.0.0</h3>
+          <time datetime="2026-08-14">14/08/2026</time>
+          <span class="release-tag is-quiet">First public release</span>
+        </header>
+
+        <h4 class="change-kind kind-new">Added</h4>
+        <ul>
+          <li><b>Choose what comes back from a backup.</b> Importing a file lets
+            you pick which parts to restore &mdash; people, servers, activity,
+            settings &mdash; and either add to what you have or replace it.</li>
+          <li><b>Choose what leaves your machine.</b> The export window asks what
+            the file is for and lets you include or leave out individual details.</li>
+          <li><b>Presentation mode</b>, which keeps names and player IDs blurred
+            even when the mouse passes over them, for screen sharing.</li>
+          <li><b>A first-run explanation</b> of what the extension reads and
+            stores, which you have to accept before anything is recorded.</li>
+        </ul>
+
+        <h4 class="change-kind kind-maint">Improved</h4>
+        <ul>
+          <li><b>Importing and exporting now live together</b> under Data and
+            privacy, instead of being spread across several screens.</li>
+          <li><b>Clearer wording throughout.</b> People you have saved are
+            described as saved people rather than as a watchlist.</li>
+        </ul>
+
+        <h4 class="change-kind kind-fix">Fixed</h4>
+        <ul>
+          <li><b>The menu on each person did nothing.</b> Every option in it &mdash;
+            renaming, tags, notes, copying an ID, removing someone &mdash; failed
+            silently, in both the tile and the list view.</li>
+          <li><b>Managing tags and viewing previous names failed</b> in the tile
+            view specifically.</li>
+        </ul>
+      </article>
+    </section>
+
     <section class="about-section" aria-labelledby="policy-heading">
       <h2 id="policy-heading">Policies</h2>
       <p>Full legal terms, including the Privacy Policy, Terms of Use, and Acceptable Use Policy,
