@@ -8,11 +8,16 @@
  * Run: node check-screenshots.mjs
  */
 
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join, extname, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const DIR = join(dirname(fileURLToPath(import.meta.url)), "webstore-assets", "screenshots");
+/* The raw captures live in screenshots/ and are whatever the grabber produced.
+   listing/ holds the five that actually go to the store, so check those when
+   they exist and fall back to the raw folder before they do. */
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "webstore-assets", "screenshots");
+const LISTING = join(ROOT, "listing");
+const DIR = existsSync(LISTING) ? LISTING : ROOT;
 const ACCEPTED = [[1280, 800], [640, 400]];
 
 /* PNG header: width and height are big-endian 32-bit ints at byte 16 and 20,
@@ -56,14 +61,21 @@ if (!files.length) {
   process.exit(1);
 }
 
-console.log(`Checking ${files.length} screenshot(s) in webstore-assets/screenshots\n`);
+const where = DIR === LISTING ? "webstore-assets/screenshots/listing" : "webstore-assets/screenshots";
+console.log(`Checking ${files.length} screenshot(s) in ${where}\n`);
 
 let bad = 0;
 for (const f of files.sort()) {
   const p = join(DIR, f);
   const buf = readFileSync(p);
-  const meta = extname(f).toLowerCase() === ".png" ? readPng(buf) : readJpeg(buf);
   const kb = (statSync(p).size / 1024).toFixed(0);
+
+  /* Sniff the actual bytes rather than trusting the extension. Exporters
+     rename freely, and a PNG called .jpg still uploads as a PNG — alpha
+     channel and all — so believing the name hides the real problem. */
+  const isPng = buf.length > 8 && buf.readUInt32BE(0) === 0x89504e47;
+  const isJpeg = buf.length > 4 && buf.readUInt16BE(0) === 0xffd8;
+  const meta = isPng ? readPng(buf) : isJpeg ? readJpeg(buf) : null;
 
   if (!meta) {
     console.log(`  FAIL  ${f} — not a readable PNG or JPEG`);
@@ -71,10 +83,16 @@ for (const f of files.sort()) {
     continue;
   }
 
+  const realExt = isPng ? ".png" : ".jpg";
+  const namedExt = extname(f).toLowerCase() === ".jpeg" ? ".jpg" : extname(f).toLowerCase();
+
   const sizeOk = ACCEPTED.some(([w, h]) => meta.width === w && meta.height === h);
   const problems = [];
   if (!sizeOk) problems.push(`${meta.width}x${meta.height}, need 1280x800 or 640x400`);
   if (meta.hasAlpha) problems.push("has an alpha channel, flatten it onto a solid background");
+  if (realExt !== namedExt) {
+    problems.push(`is really a ${realExt.slice(1).toUpperCase()} despite the ${namedExt} name`);
+  }
 
   if (problems.length) {
     console.log(`  FAIL  ${f} — ${problems.join("; ")}`);

@@ -2182,13 +2182,14 @@ async function finishWatchlistRefresh(summary) {
     for (const w of watch) {
       const prev = watchBeforeRefresh.get(String(w.playerId));
       if (prev !== undefined && prev !== w.currentName) {
-        changes.push({ label: w.nickname || w.playerId, previous: prev, current: w.currentName });
+        changes.push({ label: w.nickname || w.playerId, labelled: !!w.nickname, previous: prev, current: w.currentName });
       }
     }
     watchBeforeRefresh = null;
     if (changes.length) {
       info.innerHTML = `<span class="err">${esc(changes.length)} name change(s):</span> ` +
-        changes.map(c => `<b>${esc(c.label)}</b>: "${esc(c.previous)}" to "${esc(c.current)}"`).join(' &middot; ');
+        changes.map(c => `<b class="${c.labelled ? 'pii-nick' : 'pii'}">${esc(c.label)}</b>: ` +
+          `"<span class="pii">${esc(c.previous)}</span>" to "<span class="pii">${esc(c.current)}</span>"`).join(' &middot; ');
     } else if (summary.failures && summary.failures.length) {
       info.innerHTML = `<span class="err">${esc(summary.failures.length)} lookup error(s): ${esc(summary.failures.join(', '))}</span>`;
     } else {
@@ -2829,7 +2830,7 @@ async function loadOnline() {
 
     const watchedHtml = watched.length
       ? `<div class="watched-list">${watched.map(p => `<div class="watched-row">
-          <span class="who">${esc(p.nickname || p.name)}</span>
+          <span class="who ${p.nickname ? 'pii-nick' : 'pii'}">${esc(p.nickname || p.name)}</span>
           ${p.nickname && p.name && p.nickname !== p.name ? `<span class="note pii">${esc(p.name)}</span>` : ''}
           ${roleBadge(p.role)}
           <span class="meta">${plink(p.id)}</span>
@@ -2964,7 +2965,7 @@ function renderArchive() {
   box.innerHTML = snaps.map((s) => {
     // Both variants link to the player's RCON profile; only the label and class differ.
     const chips = s.shown.map(p => p.watched
-      ? `<a class="chip w" href="https://www.battlemetrics.com/rcon/players/${encodeURIComponent(p.id)}" target="_blank" rel="noopener">${esc(p.nickname || p.name)} ${roleBadge(p.role)}</a>`
+      ? `<a class="chip w" href="https://www.battlemetrics.com/rcon/players/${encodeURIComponent(p.id)}" target="_blank" rel="noopener"><span class="${p.nickname ? 'pii-nick' : 'pii'}">${esc(p.nickname || p.name)}</span> ${roleBadge(p.role)}</a>`
       : `<a class="chip pii" href="https://www.battlemetrics.com/rcon/players/${encodeURIComponent(p.id)}" target="_blank" rel="noopener">${esc(p.name)}</a>`).join('');
     const hidden = (s.roster || []).length - s.shown.length;
     return `<div class="arch-snap">

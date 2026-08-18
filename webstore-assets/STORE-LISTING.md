@@ -64,9 +64,19 @@ Interactive, or Arma.
 
 ## Screenshots
 
-**Put the files in `webstore-assets/screenshots/`, replacing the old set.**
-They are uploaded through the dashboard form, not bundled in the zip, so the
-folder is a staging area for you rather than part of the package.
+**Upload the five files in `webstore-assets/screenshots/listing/`.** They are
+numbered in the order the store should show them. The parent folder holds the
+raw full-resolution captures they were built from; `resize-screenshots.py`
+regenerates the listing set from those.
+
+Screenshots go through the dashboard form and are not bundled in the zip, so
+this folder is a staging area rather than part of the package.
+
+Validate before uploading:
+
+```bash
+npm run screenshots
+```
 
 Requirements the store enforces:
 
@@ -87,9 +97,8 @@ so in-game names and player IDs are blurred in every shot.
 5. **Data and privacy.** Retention, storage summary, and the deletion controls.
    This is the one that answers a reviewer's questions before they ask.
 
-Delete the stale files (`Watchlist.png`, `Monitor.png`, `Archive.png`,
-`Search.png`, `Servers.png`) once the new set is in place. Their names come
-from tab labels that no longer exist.
+The old set, named after tab labels that no longer exist, has already been
+removed.
 
 ## Submission field values
 
