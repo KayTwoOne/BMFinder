@@ -84,18 +84,19 @@
         <h4 class="change-kind kind-fix">Fixed</h4>
         <ul>
           <li><b>Server search returned the same handful of servers no matter
-            what you typed.</b> BMFinder was reading the wrong part of the page:
-            it picked up whichever server links happened to be sitting there
-            already, such as a suggestions panel, and stopped before the real
-            results had finished loading. It now waits for the results
-            themselves, so what you searched for is what you get.</li>
-          <li><b>Searching for a quiet server could still miss it.</b> Results
-            came back ordered by how busy each server was, so a near-empty one
-            could be absent altogether rather than merely far down. BMFinder now
-            asks for them ordered by name, narrows the search to the part that
-            tells similar servers apart, and says plainly when it still has not
-            found what you asked for instead of offering near-misses as though
-            they were it.</li>
+            what you typed.</b> BMFinder was asking BattleMetrics to search in a
+            way their server list does not accept, so it quietly answered with
+            its own default list every time. It now asks the way their own
+            search box does, reads up to four pages of results, and orders them
+            by how well each name matches what you typed. Separately, it was
+            also reading the wrong part of the page and could pick up a
+            suggestions panel before the real results had loaded.</li>
+          <li><b>A quiet server could be missing from the results entirely.</b>
+            BattleMetrics lists busier servers first, so a near-empty one could
+            sit past the end of the page rather than merely far down it. Reading
+            several pages and ranking by name brings it back, and if it still is
+            not found BMFinder now says so plainly instead of offering
+            near-misses as though they were what you asked for.</li>
           <li>The extractor date on this page read as <b>2026-07-23</b>, which is
             easy to misread as a month and a day. It now reads
             <b>23/07/2026</b>, like every other date here.</li>

@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import {
   matchScore, normalize, searchTerm, unsearchable, usesWildcard,
-  rankSearchResults, rankServerResults, discriminatingTerm, confidenceScore, EVIDENCE,
+  rankSearchResults, rankServerResults, serverSearchToken, confidenceScore, EVIDENCE,
 } from "../lib/match.js";
 import {
   RELATIONSHIPS, RELATIONSHIP_LABEL, RELATIONSHIP_SHORT, RELATIONSHIP_HINT, toRelationship,
@@ -416,37 +416,6 @@ test("server ranking survives an empty list and a nameless row", () => {
   assert.equal(rankServerResults("x", [{ id: "1" }])[0].score, 0);
 });
 
-/* ---- narrowing a server search that found only siblings ------------------
-   Community server names share nearly every word; only the part with a number
-   separates them. BattleMetrics returns matches busiest-first, so a quiet
-   server can fall off the end entirely. */
-
-test("the digit-bearing part is what separates sibling servers", () => {
-  assert.equal(discriminatingTerm("CodeFourGaming EU#1"), "EU#1");
-  assert.equal(discriminatingTerm("CodeFourGaming King of the Hill US#4"), "US#4");
-});
-
-test("several numbered parts are all kept, bridged like any other query", () => {
-  assert.equal(discriminatingTerm("Server 1 Map 2"), "1%2");
-});
-
-test("narrowing is skipped when it would repeat the same search", () => {
-  assert.equal(discriminatingTerm("EU#1"), "", "a single token is already as narrow as it gets");
-  assert.equal(discriminatingTerm("EU#1 US#4"), "", "every token has a digit, so nothing is dropped");
-  assert.equal(discriminatingTerm("King of the Hill"), "", "no digits, nothing to narrow to");
-  assert.equal(discriminatingTerm(""), "");
-  assert.equal(discriminatingTerm("   "), "");
-});
-
-test("narrowing still ranks against the full name the user typed", () => {
-  // What the narrowed search "EU#1" would plausibly return, busiest first.
-  const rows = [
-    { id: "9", name: "SomeOtherCommunity - Wasteland EU#1" },
-    { id: "3", name: "CodeFourGaming - King of the Hill EU#1" },
-  ];
-  assert.equal(rankServerResults("CodeFourGaming - King of the Hill EU#1", rows)[0].id, "3");
-});
-
 /* ---- server search extraction ---------------------------------------------
    serverLinks(doc) used to match a[href*="/servers/"] anywhere on the page,
    so a sidebar or a "popular servers" rail always produced SOME hit before
@@ -647,4 +616,43 @@ test("relaxing the floor does not let page chrome back in", () => {
 
   assert.deepEqual(plain(serverLinks(root, 1)), [],
     "nav is excluded before the floor is ever consulted");
+});
+
+/* ---- picking the word to send to BattleMetrics --------------------------
+   Their server search takes ONE word, which is the opposite of the player
+   search. Verified against the live site: "CodeFourGaming" returns the wanted
+   server, while "CodeFourGaming EU#1", "King of the Hill EU#1" and "EU#1" each
+   return a page without it. The token only has to get the right server into the
+   results; ranking against the full query does the rest. */
+
+test("the community name is chosen over the filler around it", () => {
+  assert.equal(serverSearchToken("CodeFourGaming - King of the Hill EU#1"), "CodeFourGaming");
+});
+
+test("words that appear on half the platform are not selective, so they lose", () => {
+  assert.equal(serverSearchToken("Olympus Gaming"), "Olympus");
+  assert.equal(serverSearchToken("The Official Arma Server"), "Official");
+});
+
+test("separators are not words", () => {
+  // The point is that a lone dash never becomes the search term, and that
+  // brackets are stripped rather than counted as part of the word.
+  assert.equal(serverSearchToken("Exile - Altis"), "Exile");
+  assert.equal(serverSearchToken("[GER] LiveYourLife"), "LiveYourLife");
+  // With no word to pick, the query is passed through untouched rather than
+  // blanked: sending what the user typed is no worse than sending nothing, and
+  // the caller has no better fallback to offer.
+  assert.equal(serverSearchToken("- - -"), "- - -");
+});
+
+test("a single word is returned unchanged", () => {
+  assert.equal(serverSearchToken("CodeFourGaming"), "CodeFourGaming");
+});
+
+test("a query of nothing but filler still yields a usable term", () => {
+  // Every word is filler, so the filter is ignored rather than returning
+  // nothing: a weak search still beats refusing to search at all. Ties go to
+  // the first word, which keeps the choice stable rather than arbitrary.
+  assert.equal(serverSearchToken("the of and"), "the");
+  assert.equal(serverSearchToken(""), "");
 });

@@ -237,28 +237,45 @@ export function rankSearchResults(results, trackedOrder = []) {
    still arrive most-popular-first.
 
    Pure and side-effect free so it can be tested without a browser or network. */
-/* The narrower query to try when a search brought back nothing that matches.
+/* The single word to send to BattleMetrics' server search.
 
-   Server names in a community share almost every word: "CodeFourGaming - King
-   of the Hill EU#1" and "... EU#5 - Infantry" differ only in the part carrying
-   a number. Searching the full name asks BattleMetrics for the words the
-   siblings have in common, and since it returns them ranked by how busy they
-   are, a quiet server can fall off the end of the results entirely - the
-   ranking here cannot promote what was never sent.
+   Their server list takes ONE word. This is the opposite of the player search,
+   which wants the whole decorated name bridged with wildcards, so the two must
+   not share a term builder. Verified against the live site:
 
-   The tokens carrying digits are the ones that separate siblings, so they make
-   a far more selective query. The results are still scored against the ORIGINAL
-   query, so searching "EU#1" and matching "CodeFourGaming ... EU#1" still ranks
-   the right server first.
+     ?q=CodeFourGaming            -> the wanted server is on the page
+     ?q=CodeFourGaming EU#1       -> a page without it
+     ?q=King of the Hill EU#1     -> a page without it
+     ?q=EU#1                      -> a page without it
 
-   Returns nothing when it would not help: a single token, or a query where
-   every token has a digit, would just repeat the search that already failed. */
-export function discriminatingTerm(query) {
-  const tokens = String(query || "").trim().split(/\s+/).filter(Boolean);
-  if (tokens.length < 2) return "";
-  const withDigit = tokens.filter((t) => /\d/.test(t));
-  if (!withDigit.length || withDigit.length === tokens.length) return "";
-  return withDigit.join(WILDCARD);
+   So the most selective single word is sent, and everything else the user typed
+   is applied afterwards by ranking what comes back against their FULL query.
+   The word only has to get the right server onto the page; it does not have to
+   identify it.
+
+   Selectivity is approximated by length, after dropping words that appear in a
+   large share of server names: "CodeFourGaming" narrows the list, "the" and
+   "gaming" widen it. Ties go to the first word, so the choice is stable rather
+   than arbitrary. */
+const SERVER_SEARCH_STOPWORDS = new Set([
+  "the", "of", "and", "a", "an", "to", "in", "on", "for", "at", "by",
+  "server", "servers", "official", "community", "gaming", "arma",
+]);
+
+export function serverSearchToken(query) {
+  const raw = String(query || "").trim();
+  if (!raw) return "";
+  const tokens = raw.split(/\s+/)
+    // A separator between words is not a word: "-" must never become the term.
+    .map((t) => t.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""))
+    .filter(Boolean);
+  // Nothing to pick from, so pass the query through rather than blanking it:
+  // the caller has no better fallback, and an odd search beats no search.
+  if (!tokens.length) return raw;
+
+  const meaningful = tokens.filter((t) => !SERVER_SEARCH_STOPWORDS.has(t.toLowerCase()));
+  const pool = meaningful.length ? meaningful : tokens;
+  return pool.reduce((best, t) => (t.length > best.length ? t : best), "");
 }
 
 export function rankServerResults(query, rows) {

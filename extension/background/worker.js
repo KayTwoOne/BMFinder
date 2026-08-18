@@ -14,7 +14,7 @@ import { db } from "../lib/db.js";
 import { entriesFor, storesForParts } from "../lib/transfer.js";
 import {
   matchScore, searchTerm, unsearchable, usesWildcard,
-  rankSearchResults, rankServerResults, discriminatingTerm, confidenceScore, EVIDENCE,
+  rankSearchResults, rankServerResults, serverSearchToken, confidenceScore, EVIDENCE,
 } from "../lib/match.js";
 
 /* A name this close to the query is the player who was asked for. */
@@ -787,120 +787,96 @@ async function search(query, mode = "name") {
   }
 }
 
-/** Server search, read from their rendered results page. */
 /* Server search, read from their rendered results page.
 
-   Two things were wrong here and either alone returned an empty list:
+   The parameter is q. This cost a great deal of time to get right, so the
+   evidence is recorded rather than left to be rediscovered:
 
-   1. It used visit(), which waits for the content script to push PAGE_DATA. But
-      reportCurrentPage deliberately never auto-reports a serversearch page, so
-      that wait could only ever end in the 20 second navigation timeout. It now
-      navigates, waits for load, and ASKS for the results, the same shape the
-      player search uses.
+     /servers/arma3?filter[search]=CodeFourGaming  -> the default top ten,
+       byte-identical to /servers/arma3 with no query at all, and the search box
+       comes back empty because the server never read the parameter.
+     /servers/arma3?q=CodeFourGaming               -> a different ten, the
+       search box echoes back value="CodeFourGaming", and the wanted server is
+       among them.
 
-   2. The query went in as ?q=. That is the parameter that does nothing on the
-      player list (it renders the default view and reads as zero results), and
-      there is no reason to think the server list treats it differently. Both
-      forms are tried, filter[search] first, so whichever their router honours
-      wins and a future change to either does not break the feature. */
-/* sort=score asks BattleMetrics to order by how well the name matches, which is
-   what the player search has always done. Without it the server list comes back
-   in its default order - broadly by how busy each server is - so a quiet server
-   whose name matches exactly can sit below busier siblings, or past the end of
-   the results altogether. Re-ranking here cannot rescue a server that was never
-   returned, so the ordering has to be asked for at the source. */
-const serverSearchUrl = (term, game, legacyQ = false) => {
+   filter[search] is the PLAYER list's parameter. It was assumed to work here
+   too, and because an ignored filter still returns a full page of servers, the
+   failure looked like bad ranking rather than a query that never filtered.
+   Ranking, wildcards and re-ordering were all layered on top of a request that
+   was returning the same ten servers no matter what was typed.
+
+   Their server search also takes ONE word. "CodeFourGaming" finds the server;
+   "CodeFourGaming EU#1", "King of the Hill EU#1" and "EU#1" each return a page
+   without it. So the query sent is the single most selective word, and
+   everything else the user typed is applied here, by ranking what comes back
+   against their full query. */
+const SERVER_PAGE_SIZE = 10;
+/* Four pages is forty servers, which covers a large community without turning
+   one search into a crawl of someone else's site. It is an upper bound, not a
+   target: the loop stops early on a strong match or a short page, so the common
+   case is still a single load. */
+const MAX_SERVER_PAGES = 4;
+
+const serverSearchUrl = (term, game, offset = 0) => {
   const base = `${SITE}/servers/${encodeURIComponent(game)}`;
-  const q = encodeURIComponent(term);
-  return legacyQ ? `${base}?q=${q}` : `${base}?filter%5Bsearch%5D=${q}&sort=score`;
+  const q = `q=${encodeURIComponent(term)}`;
+  // page[offset] is their own pagination, taken from the Next link they render.
+  return offset ? `${base}?${q}&page%5Boffset%5D=${offset}` : `${base}?${q}`;
 };
 
-/* Server names are long and full of separators - "CodeFourGaming - King of the
-   Hill EU#1" - so a user typing the two parts they remember, "CodeFourGaming
-   EU#1", is asking for a phrase that does not appear anywhere in the name. The
-   raw query therefore misses the very server it names. searchTerm() bridges
-   each gap with the same wildcard the player search relies on, so the query
-   spans the words in between; the raw term is still tried afterwards in case
-   their matcher ever prefers it. */
 async function searchServers(query, game = "arma3") {
   if (job) return { error: "A refresh is already running." };
   const raw = String(query || "").trim();
   if (!raw) return { results: [], error: "Enter a server name to search for." };
 
-  const bridged = searchTerm(raw);
-  const terms = bridged && bridged !== raw ? [bridged, raw] : [raw];
-
-  /* Attempts, cheapest and likeliest first, and deliberately NOT every
-     combination of term and URL form.
-
-     filter[search] is the parameter that actually works, so both terms are
-     tried against it. ?q= is only a hedge against their router changing one
-     day - and if it ever does change, it changes for both terms at once, so
-     trying it more than once buys nothing. Pairing every term with every form
-     would have made a failed search cost four page loads where it used to cost
-     two, and keeping load on battlemetrics.com low is the whole basis on which
-     this extension reads pages at all. A hit still costs one. */
-  const attempts = [
-    ...terms.map((t) => ({ term: t, url: serverSearchUrl(t, game) })),
-    { term: raw, url: serverSearchUrl(raw, game, true) },
-  ];
+  const token = serverSearchToken(raw) || raw;
 
   job = { kind: "serversearch", total: 1, done: 0, cancelled: false, tabId: null };
   try {
     const tabId = await ensureTab();
+    const seen = new Set();
+    const all = [];
     let diag = null;
-    let best = null;
+    let pages = 0;
 
-    for (const { term, url } of attempts) {
+    /* Read one page at a time and stop as soon as the answer is in hand. A
+       community with more servers than fit on a page is exactly the case that
+       used to fail, so more pages are available - but each one is a page load
+       on someone else's site, so they are taken only while they are still
+       earning their keep. */
+    for (let offset = 0; offset < SERVER_PAGE_SIZE * MAX_SERVER_PAGES; offset += SERVER_PAGE_SIZE) {
       if (job.cancelled) break;
-      await navigate(tabId, url);
+      await navigate(tabId, serverSearchUrl(token, game, offset));
       const resp = await sendTab(tabId, { type: "READ_SERVERSEARCH" });
       const rows = (resp && resp.servers) || [];
-      if (rows.length) {
-        best = {
-          results: rankServerResults(raw, rows),
-          searchedWith: url,
-          wildcarded: term !== raw,
-        };
-        break;
-      }
       if (resp && resp.diag) diag = resp.diag;
-    }
 
-    if (!best) return { results: [], diag };
-
-    /* Results came back, but if none of them is really the server that was
-       asked for, they are the busy siblings that share its words rather than
-       the server itself. One narrower search, on the part of the name that
-       tells siblings apart, is worth the extra page load - it is the whole
-       difference between finding a quiet server and never seeing it.
-
-       Only when it would actually help: a strong match already found needs no
-       rescue, and a query with nothing to narrow to would just repeat itself. */
-    if ((best.results[0] && best.results[0].score) < STRONG_MATCH && !job.cancelled) {
-      const narrow = discriminatingTerm(raw);
-      if (narrow) {
-        const url = serverSearchUrl(narrow, game);
-        await navigate(tabId, url);
-        const resp = await sendTab(tabId, { type: "READ_SERVERSEARCH" });
-        const rows = (resp && resp.servers) || [];
-        if (rows.length) {
-          // Scored against the ORIGINAL query, not the narrowed one, so the
-          // full name the user typed is still what decides the order.
-          const ranked = rankServerResults(raw, rows);
-          if ((ranked[0].score || 0) > (best.results[0].score || 0)) {
-            best = { results: ranked, searchedWith: url, wildcarded: true, narrowed: narrow };
-          }
-        }
+      pages++;
+      for (const r of rows) {
+        if (seen.has(r.id)) continue;
+        seen.add(r.id);
+        all.push(r);
       }
+
+      // A short page is the last page; asking for the next one returns nothing.
+      if (rows.length < SERVER_PAGE_SIZE) break;
+      // Found what was asked for, so the remaining pages cannot improve on it.
+      const best = all.reduce((m, r) => Math.max(m, matchScore(raw, r.name || "")), 0);
+      if (best >= STRONG_MATCH) break;
     }
-    return best;
+
+    if (!all.length) return { results: [], diag, searchedFor: token };
+    return {
+      results: rankServerResults(raw, all),
+      searchedFor: token,
+      narrowed: token !== raw ? token : null,
+      pages,
+    };
   } finally {
     await closeTab();
     job = null;
   }
 }
-
 
 
 /* ---- bookmark import ---------------------------------------------------- */

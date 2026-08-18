@@ -2406,8 +2406,13 @@ on('#sv-search', 'click', async () => {
       + ' open it on BattleMetrics and add it with <b>Add by ID</b>.';
 
   box.innerHTML = `<div class="note mb-8">${esc(lead)}`
-    + (d.wildcarded ? ' Your words were matched across the whole name.' : '')
-    + (d.narrowed ? ` Narrowed to <b>${esc(d.narrowed.replace(/%/g, ' '))}</b> to find it.` : '')
+    /* Say what was actually sent. BattleMetrics' server search takes one word,
+       so a multi-word query is searched on its most selective word and then
+       ranked against everything the user typed. Without saying so, results that
+       ignore half the query look like a bug rather than the only thing their
+       search accepts. */
+    + (d.narrowed ? ` Searched for <b>${esc(d.narrowed)}</b>, then ranked against your full text.` : '')
+    + (d.pages > 1 ? ` Read ${esc(d.pages)} pages of results.` : '')
     + hint
     + `</div>`
     + rows.map((s) => `<div class="srvcard flex gap-10 items-center">
