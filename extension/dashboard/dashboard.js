@@ -853,6 +853,29 @@ function expSections() {
   return s;
 }
 
+/* The fields that will actually reach the file.
+
+   A field tick inside an excluded section is inert: the section contributes
+   nothing, so the column cannot appear. Anything reasoning about what the export
+   CONTAINS - the sensitive-data warning, the self-describing field list - has to
+   ask this rather than expFields(), or it describes ticks instead of contents.
+
+   The case that made this necessary: player IDs are a warned field and live in
+   the people section, so excluding people to share a server list still raised
+   "this export contains detailed player information" and demanded an
+   acknowledgement, for a file with no player data in it. A warning that fires
+   when nothing is wrong teaches people to dismiss warnings. */
+function expEffectiveFields() {
+  const sec = expSections();
+  const f = {};
+  for (const i of expFieldInputs()) {
+    const group = i.closest('[data-section-of]');
+    const owner = group && group.dataset.sectionOf;
+    f[i.dataset.f] = i.checked && (!owner || sec[owner] !== false);
+  }
+  return f;
+}
+
 /* An excluded section's field ticks are meaningless, so grey them out rather
    than leaving them live and ignored. */
 function expSyncSections() {
@@ -873,7 +896,8 @@ function expSyncSections() {
    takes the warning away, and re-ticking brings back an unticked acknowledgement
    - consent to one selection is not consent to a later, wider one. */
 function expSyncWarning() {
-  const f = expFields();
+  // Effective, not ticked: a warned field in an excluded section is not in the file.
+  const f = expEffectiveFields();
   const need = EXPORT_WARN_FIELDS.some((k) => f[k]);
   $('#exp-warn').classList.toggle('hide', !need);
   /* Cleared unconditionally. This runs on every field change, so any change to
@@ -887,7 +911,16 @@ function expSyncWarning() {
 
 function expSyncGo() {
   const needAck = !$('#exp-warn').classList.contains('hide');
-  $('#exp-go').disabled = needAck && !$('#exp-ack').checked;
+  /* A full backup ignores the section switches by definition, so it is never
+     empty. Otherwise, with both sections excluded and no activity selected there
+     is nothing to write: refuse up front rather than letting the click land on
+     an error message. Saying no before the button is pressed is kinder than
+     saying no after. */
+  const fmt = ($('#exp-format input:checked') || {}).value;
+  const sec = expSections();
+  const empty = fmt !== 'backup'
+    && sec.people === false && sec.servers === false && !expFields().checks;
+  $('#exp-go').disabled = empty || (needAck && !$('#exp-ack').checked);
 }
 
 /* A full backup is a complete copy by definition, so offering field
@@ -1010,6 +1043,15 @@ function serverRows(servers, f) {
 
 async function runExport() {
   if (!exportScope) return;
+  /* Followed servers come from local state, which is empty until the first
+     GET_STATE resolves. Exporting inside that window would write a file with no
+     servers in it and report success, and a silently incomplete export is worse
+     than a refused one: the user keeps the file and believes it is whole. The
+     window is one message round-trip, so this should effectively never be seen. */
+  if (!stateLoaded) {
+    setMsg('#exp-msg', 'Still reading your data. Try again in a moment.', 'err');
+    return;
+  }
   const scope = exportScope;
   const f = expFields();
   const fmt = ($('#exp-format input:checked') || {}).value || 'csv';
@@ -1028,6 +1070,7 @@ async function runExport() {
     }
 
     const sec = expSections();
+    const eff = expEffectiveFields();
     /* An unticked section contributes nothing at all - not an empty array of
        objects with ids in them, nothing. This is the whole point: sharing a
        server list must not ship the people list alongside it. */
@@ -1047,7 +1090,10 @@ async function runExport() {
         format: 'bmfinder-list',
         version: 1,
         exportedAt: f.exactTimes ? new Date().toISOString() : stamp,
-        fields: Object.keys(f).filter((k) => f[k]),
+        /* Describes what is in the file, not what was ticked. A receiving
+           BMFinder trusts this list to know which fields are present, so
+           advertising a column from an excluded section would be a lie. */
+        fields: Object.keys(eff).filter((k) => eff[k]),
         people: people.map((w) => {
           const o = { playerId: String(w.playerId) };
           if (f.label) o.label = w.nickname || '';

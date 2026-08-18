@@ -803,10 +803,10 @@ async function search(query, mode = "name") {
       there is no reason to think the server list treats it differently. Both
       forms are tried, filter[search] first, so whichever their router honours
       wins and a future change to either does not break the feature. */
-const serverSearchUrls = (term, game) => {
+const serverSearchUrl = (term, game, legacyQ = false) => {
   const base = `${SITE}/servers/${encodeURIComponent(game)}`;
   const q = encodeURIComponent(term);
-  return [`${base}?filter%5Bsearch%5D=${q}`, `${base}?q=${q}`];
+  return legacyQ ? `${base}?q=${q}` : `${base}?filter%5Bsearch%5D=${q}`;
 };
 
 /* Server names are long and full of separators - "CodeFourGaming - King of the
@@ -824,25 +824,38 @@ async function searchServers(query, game = "arma3") {
   const bridged = searchTerm(raw);
   const terms = bridged && bridged !== raw ? [bridged, raw] : [raw];
 
+  /* Attempts, cheapest and likeliest first, and deliberately NOT every
+     combination of term and URL form.
+
+     filter[search] is the parameter that actually works, so both terms are
+     tried against it. ?q= is only a hedge against their router changing one
+     day - and if it ever does change, it changes for both terms at once, so
+     trying it more than once buys nothing. Pairing every term with every form
+     would have made a failed search cost four page loads where it used to cost
+     two, and keeping load on battlemetrics.com low is the whole basis on which
+     this extension reads pages at all. A hit still costs one. */
+  const attempts = [
+    ...terms.map((t) => ({ term: t, url: serverSearchUrl(t, game) })),
+    { term: raw, url: serverSearchUrl(raw, game, true) },
+  ];
+
   job = { kind: "serversearch", total: 1, done: 0, cancelled: false, tabId: null };
   try {
     const tabId = await ensureTab();
     let diag = null;
-    for (const term of terms) {
-      for (const url of serverSearchUrls(term, game)) {
-        if (job.cancelled) break;
-        await navigate(tabId, url);
-        const resp = await sendTab(tabId, { type: "READ_SERVERSEARCH" });
-        const rows = (resp && resp.servers) || [];
-        if (rows.length) {
-          return {
-            results: rankServerResults(raw, rows),
-            searchedWith: url,
-            wildcarded: term !== raw,
-          };
-        }
-        if (resp && resp.diag) diag = resp.diag;
+    for (const { term, url } of attempts) {
+      if (job.cancelled) break;
+      await navigate(tabId, url);
+      const resp = await sendTab(tabId, { type: "READ_SERVERSEARCH" });
+      const rows = (resp && resp.servers) || [];
+      if (rows.length) {
+        return {
+          results: rankServerResults(raw, rows),
+          searchedWith: url,
+          wildcarded: term !== raw,
+        };
       }
+      if (resp && resp.diag) diag = resp.diag;
     }
     return { results: [], diag };
   } finally {
