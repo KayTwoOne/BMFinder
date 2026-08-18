@@ -62,11 +62,21 @@ BMFinder is an independent community project. It is not affiliated with,
 endorsed by, sponsored by, or produced by BattleMetrics, Valve, Steam, Bohemia
 Interactive, or Arma.
 
-## Screenshots to capture (1280x800)
+## Screenshots
 
-The old set is stale and must be replaced. Turn on **Presentation mode** (the
-screen icon in the header) before capturing so in-game names and player IDs are
-blurred in every shot.
+**Put the files in `webstore-assets/screenshots/`, replacing the old set.**
+They are uploaded through the dashboard form, not bundled in the zip, so the
+folder is a staging area for you rather than part of the package.
+
+Requirements the store enforces:
+
+- **1280x800** or 640x400. Use 1280x800.
+- **PNG or JPEG**, no alpha channel.
+- **At least one**, at most five. Supply all five below.
+- The image must be the full canvas, no padding or borders added.
+
+Turn on **Presentation mode** (the screen icon in the header) before capturing
+so in-game names and player IDs are blurred in every shot.
 
 1. **People — tiles.** The main view. Shows saved people with labels,
    relationships and last observed.
@@ -76,6 +86,32 @@ blurred in every shot.
 4. **Live activity.** The schedule and at-a-glance numbers.
 5. **Data and privacy.** Retention, storage summary, and the deletion controls.
    This is the one that answers a reviewer's questions before they ask.
+
+Delete the stale files (`Watchlist.png`, `Monitor.png`, `Archive.png`,
+`Search.png`, `Servers.png`) once the new set is in place. Their names come
+from tab labels that no longer exist.
+
+## Submission field values
+
+Everything the dashboard asks for, in one place.
+
+| Field | Value |
+|---|---|
+| Extension name | BMFinder |
+| Short description | See when the players you follow are online on the game servers you track. |
+| Category | Social & Communication |
+| Language | English (United Kingdom) |
+| Store icon | `webstore-assets/store-icon-512.png` (512x512) |
+| Screenshots | 5 files from `webstore-assets/screenshots/`, 1280x800 |
+| Privacy policy URL | `https://dotkay.dev/projects/bmfinder/privacy.html` |
+| Remote code | **No.** All code and assets ship in the package. |
+| Data collection | Tick **Website content** only. Leave every other category unticked. |
+| Certifications | Tick all three. Wording in DATA-DISCLOSURE.md. |
+| Visibility | Public |
+| Distribution | All regions |
+| Pricing | Free |
+
+Promo tiles are optional and none are supplied. Skip that section.
 
 ## Single purpose statement
 

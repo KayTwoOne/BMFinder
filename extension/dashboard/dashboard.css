@@ -505,6 +505,8 @@ button.ghost:hover, button.ghost:active,
    This is presentation only. Nothing here changes what is stored. */
 .pres-on .pii,
 .pres-on .pii:hover,
+.pres-on .pii-nick,
+.pres-on .pii-nick:hover,
 .pres-on .obf,
 .pres-on .obf:hover {
   filter: blur(7px);

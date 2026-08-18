@@ -1451,12 +1451,13 @@ function renderWatch(watch) {
     first = false;
     if (watchSel.has(String(w.playerId))) tr.classList.add('sel');
     // .pii marks the in-game name and id so the obfuscate toggle can blur them for
-    // screenshots without re-rendering. The nickname is your own label, not blurred.
+    // screenshots without re-rendering. .pii-nick marks the label too, but only
+    // presentation mode blurs it - screenshot privacy leaves your own label readable.
     // The note lives here rather than in a column of its own: most rows have no
     // note, and a column that is empty most of the time is wasted width.
     tr.innerHTML = `
       <td class="identity">
-        <div class="nick${nick ? '' : ' none'}" data-pid="${esc(w.playerId)}" title="Double-click to rename"><button class="row-toggle" data-expand="${esc(w.playerId)}" type="button" title="Show previous names" aria-label="Show previous names for ${esc(w.nickname || w.playerId)}">&#9656;</button>${nick || '(no label)'}${tagChips(w)}</div>
+        <div class="nick${nick ? '' : ' none'}" data-pid="${esc(w.playerId)}" title="Double-click to rename"><button class="row-toggle" data-expand="${esc(w.playerId)}" type="button" title="Show previous names" aria-label="Show previous names for ${esc(w.nickname || w.playerId)}">&#9656;</button><span class="pii-nick">${nick || '(no label)'}</span>${tagChips(w)}</div>
         <div class="live"><span class="tag">in game</span><span class="pii">${live || '<span class="unknown-text">Not checked yet</span>'}</span>${unavailableBadge(w.private)}</div>
         ${w.note ? `<div class="has-note" title="${esc(w.note)}">${esc(w.note)}</div>` : ''}
       </td>
@@ -1507,7 +1508,7 @@ function renderWatchTiles(watch) {
       aria-label="${esc(label || w.currentName || pid)}${fav ? ', favourite' : ''}">
       <div class="ptile-head">
         ${avatar(w)}
-        <h3 class="ptile-name${label ? '' : ' none'}" data-pid="${esc(pid)}"
+        <h3 class="ptile-name pii-nick${label ? '' : ' none'}" data-pid="${esc(pid)}"
           title="${esc(label ? label + ' — double-click to rename' : 'Double-click to add a label')}"
         >${esc(label) || 'No label'}</h3>
         <div class="ptile-acts">
@@ -1552,7 +1553,9 @@ function avatar(w) {
   // codePointAt, not [0]: an emoji or a CJK name would otherwise split a surrogate
   // pair and render a replacement character.
   const initial = src ? String.fromCodePoint(src.codePointAt(0)).toUpperCase() : '?';
-  return `<span class="ptile-avatar" aria-hidden="true" style="--h:${h}">${esc(initial)}</span>`;
+  // pii-nick here too: the initial is drawn from the nickname whenever one is set,
+  // so it sits right next to the blurred label leaking its first letter otherwise.
+  return `<span class="ptile-avatar pii-nick" aria-hidden="true" style="--h:${h}">${esc(initial)}</span>`;
 }
 
 /* ---- row overflow menu ----------------------------------------------------
@@ -1795,7 +1798,7 @@ async function openPlayerSheet(playerId) {
     <aside class="sheet" role="dialog" aria-modal="true" aria-label="Player details">
       <div class="sheet-head">
         <div class="grow">
-          <h2>${esc(w.nickname) || `<span class="unknown-text">No label</span>`}</h2>
+          <h2 class="pii-nick">${esc(w.nickname) || `<span class="unknown-text">No label</span>`}</h2>
           <div class="sheet-sub"><span class="pii">${esc(w.currentName) || 'Current name not checked yet'}</span>
             ${w.private ? ' &middot; hidden profile' : ''}</div>
         </div>
