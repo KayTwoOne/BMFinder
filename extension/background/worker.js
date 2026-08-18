@@ -1,11 +1,12 @@
 /* Background service worker: the only writer to storage, and the only thing that
    decides when a request goes out.
 
-   Active refreshes drive ONE hidden tab through the target list, one item at a
-   time, with a gap between each. That pacing is not decoration. Roughly twenty
-   rapid scripted requests to battlemetrics.com earned a Cloudflare challenge
-   during testing, so the queue stays deliberately slower than a script could go
-   and closer to what a person clicking around produces.
+   Active refreshes drive ONE background tab through the target list, one item
+   at a time, with a gap between each. Navigation is serialised and rate limited
+   on purpose: it keeps the extension to a single in-flight page load, puts a
+   light and predictable load on battlemetrics.com, and avoids overlapping reads
+   that would race each other. Issuing them as fast as the code could manage was
+   measured as both unnecessary and inconsiderate to the host.
 
    Passive reads cost nothing: they are pages the user opened anyway. */
 
@@ -96,7 +97,7 @@ function broadcast(msg) {
 }
 
 /** Pause between requests. An explicit override wins, otherwise the stored
-    setting, but never below 1s: faster than that stops looking like browsing. */
+    setting, with a hard floor of 1s so the pacing cannot be configured away. */
 async function gap(overrideMs) {
   const stored = Number(await db.getSetting("gapMs", DEFAULT_GAP_MS)) || DEFAULT_GAP_MS;
   const ms = Number(overrideMs) > 0 ? Number(overrideMs) : stored;
@@ -644,8 +645,8 @@ async function search(query, mode = "name") {
        in a list of ten same-named strangers.
 
        The sessions page is read INSTEAD of the profile page, not in addition, to
-       hold the request count where it already was (~12, paced): doubling it is
-       exactly the rapid volume that earns a Cloudflare challenge. The cost is
+       hold the request count where it already was (~12, paced) rather than
+       doubling the load a single search puts on the host. The cost is
        that a cross-referenced row has no first-seen date (the sessions page does
        not carry it); its last-seen comes from the most recent session, which is
        at least as accurate. With no tracked servers there is nothing to match

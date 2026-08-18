@@ -133,8 +133,12 @@ BattleMetrics pages in their own browser.
 See PERMISSION-JUSTIFICATIONS.md. Summary:
 
 - `storage` and IndexedDB: the saved list and settings, on the device only.
-- `tabs`: to open and read one BattleMetrics page at a time during a refresh.
-- `alarms`: to schedule live updates while the dashboard is open.
+- `tabs`: to check by URL whether a BMFinder dashboard tab is still open, which
+  is what stops live updates once the user closes it. Opening and closing the
+  background tab does not itself need this permission.
+- `alarms`: to keep the chosen refresh interval accurate across Manifest V3
+  service-worker suspension, only while the dashboard is open. The alarm is
+  cleared when the last dashboard tab closes.
 - `bookmarks`: **optional**, requested only when the user imports their own
   BattleMetrics bookmarks, and never requested otherwise.
 - Host permission is limited to `https://www.battlemetrics.com/*`.

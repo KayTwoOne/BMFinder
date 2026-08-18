@@ -18,22 +18,38 @@ servers would reset to empty every time the browser restarts.
 
 ## tabs
 
-Used to open battlemetrics.com pages in a background tab so the extension
-can read the rendered page when the user searches for a player or when live
-updates refresh a followed server, and to close that tab when done. Without
-this permission, player search and live updates cannot load any
-battlemetrics.com page at all, since there is no API being called; the
-extension's only way to get player and server data is to load the real
-page in a tab and read it.
+Required to check whether the BMFinder dashboard is still open, using
+`chrome.tabs.query({ url: chrome.runtime.getURL("dashboard/dashboard.html") })`.
+Querying by URL requires either this permission or host access to the URL being
+matched, and the dashboard is a `chrome-extension://` page that the extension's
+`host_permissions` entry for battlemetrics.com does not cover.
+
+That check is what stops the extension working in the background. Live updates
+are only permitted while a dashboard tab exists; when the last one closes, the
+scheduled refresh is cancelled rather than left running. Without this
+permission the extension cannot tell that the dashboard has gone, and the
+guarantee that it does nothing while closed could not be enforced.
+
+Creating, navigating and closing the background tab used to read a
+battlemetrics.com page does not itself require this permission, and is not
+being claimed as a reason for it.
 
 ## alarms
 
-Used to schedule the recurring refresh of followed servers (five minutes at
-the fastest, and the default interval) using `chrome.alarms` instead of an
-in-page timer that would stop running when no extension page is open.
-Without this permission, live updates cannot reliably run on a schedule in
-the background; refreshing would stop as soon as the user closed any popup
-or extension view.
+Used to hold the user's chosen refresh interval for followed servers while the
+BMFinder dashboard is open. A Manifest V3 service worker is suspended when idle,
+which would discard an in-page or in-worker timer part-way through an interval;
+`chrome.alarms` survives that suspension, so a 10-minute interval stays a
+10-minute interval instead of restarting whenever Chrome revives the worker.
+
+The alarm does not outlive the dashboard. It is created only while a dashboard
+tab is open and monitoring is running, and it is cleared as soon as the last
+dashboard tab closes. The handler re-checks on every fire and cancels itself if
+the dashboard has gone or consent has been withdrawn, so the extension does not
+poll in the background when the user is not looking at it.
+
+Without this permission the interval could not be kept accurately across
+service-worker suspension.
 
 ## Host permission: https://www.battlemetrics.com/*
 
