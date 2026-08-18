@@ -839,6 +839,35 @@ function expFields() {
   return f;
 }
 
+/* Which whole sections belong in the file, as distinct from which columns.
+
+   Someone sharing the servers they play on should not have to hand over their
+   people list to do it, and the reverse is just as true. A field tick chooses a
+   column; these choose whether the section exists at all. The required id
+   fields stay locked within a section, because a section that IS exported still
+   needs its key to be importable - being required does not mean being
+   unavoidable. */
+function expSections() {
+  const s = {};
+  for (const i of $$('#exp-fields input[data-section]')) s[i.dataset.section] = i.checked;
+  return s;
+}
+
+/* An excluded section's field ticks are meaningless, so grey them out rather
+   than leaving them live and ignored. */
+function expSyncSections() {
+  for (const box of $$('#exp-fields input[data-section]')) {
+    const group = box.closest('.exp-group');
+    if (!group) continue;
+    group.classList.toggle('section-off', !box.checked);
+    for (const f of group.querySelectorAll('input[data-f]')) {
+      // A locked required field is disabled for its own reason; leave it alone.
+      if (f.dataset.f === 'playerId' || f.dataset.f === 'serverId') continue;
+      f.disabled = !box.checked;
+    }
+  }
+}
+
 /* The warning is a function of the current ticks, so it is recomputed on every
    change rather than shown once and left. Unticking the field that caused it
    takes the warning away, and re-ticking brings back an unticked acknowledgement
@@ -885,6 +914,12 @@ function expApplyPurpose(name) {
     i.closest('label').classList.toggle('locked', !!locked);
     if (locked) i.checked = !!p.lock[i.dataset.f];
   }
+  /* A preset describes which columns it wants, not which sections to drop, so
+     choosing one restores both sections. Otherwise a section switched off for
+     one export would silently persist into the next, differently-intended one. */
+  for (const s of $$('#exp-fields input[data-section]')) s.checked = true;
+  expSyncSections();
+
   const fmt = $(`#exp-format input[value="${p.format}"]`);
   if (fmt) fmt.checked = true;
   expSyncFormat();
@@ -916,10 +951,11 @@ on('#exp-purpose', 'change', (e) => {
   const r = e.target.closest('input[name="exp-purpose"]');
   if (r) expApplyPurpose(r.value);
 });
-on('#exp-fields', 'change', () => {
+on('#exp-fields', 'change', (e) => {
   // Touching a field by hand means this is no longer one of the presets.
   const custom = $('#exp-purpose input[value="custom"]');
   if (custom) custom.checked = true;
+  if (e.target && e.target.dataset && e.target.dataset.section) expSyncSections();
   expSyncWarning();
 });
 on('#exp-format', 'change', () => { expSyncFormat(); expSyncWarning(); });
@@ -955,6 +991,23 @@ function peopleRows(people, f) {
   };
 }
 
+/* CSV had no server writer, so asking for servers without people produced an
+   empty people file. Sharing "here are the servers I play on" is an ordinary
+   thing to want, and it should not require handing over the people list or
+   switching to JSON to do it. */
+function serverRows(servers, f) {
+  const headers = ['serverId'];
+  if (f.serverName) headers.push('server');
+  if (f.serverLink) headers.push('link');
+  const rows = servers.map((s) => {
+    const row = [String(s.serverId)];
+    if (f.serverName) row.push(s.nickname || s.name || '');
+    if (f.serverLink) row.push(s.game ? `https://www.battlemetrics.com/servers/${s.game}/${s.serverId}` : '');
+    return row;
+  });
+  return { headers, rows };
+}
+
 async function runExport() {
   if (!exportScope) return;
   const scope = exportScope;
@@ -974,7 +1027,17 @@ async function runExport() {
       return;
     }
 
-    const people = scope.people ? scope.people() : [];
+    const sec = expSections();
+    /* An unticked section contributes nothing at all - not an empty array of
+       objects with ids in them, nothing. This is the whole point: sharing a
+       server list must not ship the people list alongside it. */
+    const people = sec.people === false ? [] : (scope.people ? scope.people() : []);
+    const servers = sec.servers === false ? [] : (state.servers || []);
+
+    if (!people.length && !servers.length && !f.checks) {
+      setMsg('#exp-msg', 'Nothing selected to export. Tick a section, or choose recent activity.', 'err');
+      return;
+    }
 
     if (fmt === 'list') {
       /* A transfer format, so it is self-describing: a receiving BMFinder should
@@ -1003,7 +1066,7 @@ async function runExport() {
            field that no import path read. Carrying them makes the id
            load-bearing, and makes a list a complete picture of a setup rather
            than half of one. */
-        servers: (state.servers || []).map((s) => {
+        servers: servers.map((s) => {
           const o = { serverId: String(s.serverId) };
           if (f.serverName) o.name = s.nickname || s.name || '';
           if (s.game) o.game = s.game;
@@ -1015,8 +1078,16 @@ async function runExport() {
       };
       downloadBlob(`bmfinder-list-${stamp}.json`, JSON.stringify(payload, null, 2), 'application/json');
       closeExportDialog();
-      toast(`Exported ${payload.people.length} ${payload.people.length === 1 ? 'person' : 'people'}`
-        + ` and ${payload.servers.length} ${payload.servers.length === 1 ? 'server' : 'servers'}.`, { tone: 'ok' });
+      /* Name only what was actually written. Reporting "0 people" when the
+         people section was deliberately left out reads like a failure. */
+      const parts = [];
+      if (payload.people.length) {
+        parts.push(`${payload.people.length} ${payload.people.length === 1 ? 'person' : 'people'}`);
+      }
+      if (payload.servers.length) {
+        parts.push(`${payload.servers.length} ${payload.servers.length === 1 ? 'server' : 'servers'}`);
+      }
+      toast(`Exported ${parts.join(' and ')}.`, { tone: 'ok' });
       return;
     }
 
@@ -1025,6 +1096,13 @@ async function runExport() {
       const r = await send({ type: 'ARCHIVE', limit: 300 });
       if (r && r.error) { setMsg('#exp-msg', 'Export failed: ' + r.error, 'err'); return; }
       const saved = new Set((watchData || []).map((w) => String(w.playerId)));
+      /* Snapshots record a serverId but not a game slug, and a BattleMetrics
+         server URL needs both. Look the game up from the followed servers
+         rather than assuming one: exporting a Rust server as /servers/arma3/
+         produces a link that does not resolve. */
+      const gameOf = new Map((state.servers || [])
+        .filter((s) => s.game)
+        .map((s) => [String(s.serverId), s.game]));
       const headers = ['when'];
       if (f.serverName) headers.push('server');
       if (f.serverId) headers.push('serverId');
@@ -1042,7 +1120,10 @@ async function runExport() {
           const row = [fmtTime(s.pollTs, f)];
           if (f.serverName) row.push(s.serverName || '');
           if (f.serverId) row.push(String(s.serverId || ''));
-          if (f.serverLink) row.push(s.serverId ? `https://www.battlemetrics.com/servers/arma3/${s.serverId}` : '');
+          if (f.serverLink) {
+            const g = gameOf.get(String(s.serverId));
+            row.push(s.serverId && g ? `https://www.battlemetrics.com/servers/${g}/${s.serverId}` : '');
+          }
           row.push(p.nickname || p.name || '');
           if (f.activityPlayerIds) row.push(String(p.id));
           row.push(isSaved ? 'yes' : 'no');
@@ -1052,6 +1133,15 @@ async function runExport() {
       downloadCsv(`bmfinder-recent-activity-${stamp}.csv`, headers, rows);
       closeExportDialog();
       toast(`Exported ${rows.length} activity ${rows.length === 1 ? 'row' : 'rows'}.`, { tone: 'ok' });
+      return;
+    }
+
+    // Servers without people is a servers file, not an empty people file.
+    if (!people.length && servers.length) {
+      const s = serverRows(servers, f);
+      downloadCsv(`bmfinder-servers-${stamp}.csv`, s.headers, s.rows);
+      closeExportDialog();
+      toast(`Exported ${s.rows.length} ${s.rows.length === 1 ? 'server' : 'servers'}.`, { tone: 'ok' });
       return;
     }
 
@@ -2242,8 +2332,19 @@ on('#sv-search', 'click', async () => {
     if (d.diag) console.log('BMFinder server search diagnostic', d.diag);
     return;
   }
-  box.innerHTML = rows.map((s) => `<div class="srvcard flex gap-10 items-center">
-    <div class="grow"><b>${esc(s.name)}</b><div class="note">ID ${esc(s.id)}</div></div>
+  /* Results arrive ranked by how well the name matches, not by how busy the
+     server is, so say so: without a note the top hit looks like BattleMetrics'
+     own order and a close-but-not-exact first result reads as a bug. */
+  const exact = rows.filter((s) => (s.score || 0) >= 0.999).length;
+  const lead = exact
+    ? `Best name match${exact > 1 ? 'es' : ''} first.`
+    : 'No exact name match. Closest names first.';
+  box.innerHTML = `<div class="note mb-8">${esc(lead)}`
+    + (d.wildcarded ? ' Your words were matched across the whole name.' : '')
+    + `</div>`
+    + rows.map((s) => `<div class="srvcard flex gap-10 items-center">
+    <div class="grow"><b>${esc(s.name)}</b><div class="note">ID ${esc(s.id)}${
+      s.score != null ? ` &middot; ${esc(Math.round(s.score * 100))}% name match` : ''}</div></div>
     <button class="secondary small" data-addsv="${esc(s.id)}" data-nm="${esc(s.name)}" data-game="${esc(s.game || 'arma3')}" type="button">Track</button>
   </div>`).join('');
   box.querySelectorAll('[data-addsv]').forEach((b) => {

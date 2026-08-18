@@ -102,8 +102,12 @@
   </fieldset>
 
   <div id="exp-fields">
-    <fieldset class="exp-group">
-      <legend>Saved-person fields</legend>
+    <!-- Section switches. A field checkbox says which columns to include; these
+         say whether the section belongs in the file at all, so a server list can
+         be shared without handing over the people list with it. -->
+    <fieldset class="exp-group" data-section-of="people">
+      <legend><label class="exp-section"><input type="checkbox" data-section="people" checked>
+        Include saved people</label></legend>
       <label><input type="checkbox" data-f="label" checked> Your labels</label>
       <label><input type="checkbox" data-f="currentName" checked> Current in-game names</label>
       <label><input type="checkbox" data-f="relationship" checked> Relationship categories</label>
@@ -117,8 +121,9 @@
       <label><input type="checkbox" data-f="lastSeen"> Last observation time</label>
     </fieldset>
 
-    <fieldset class="exp-group">
-      <legend>Server fields</legend>
+    <fieldset class="exp-group" data-section-of="servers">
+      <legend><label class="exp-section"><input type="checkbox" data-section="servers" checked>
+        Include followed servers</label></legend>
       <label><input type="checkbox" data-f="serverName" checked> Server names</label>
       <label><input type="checkbox" data-f="serverLink" checked> Server links</label>
       <!-- Required for the same reason: a followed server is restored by its
@@ -236,6 +241,27 @@
           a server you track is listed first.</p>
       </div>
     </div>
+
+    <!-- Why results improve after following servers, said where it is acted on.
+         A search on a fresh install returns a flat list of strangers with no way
+         to tell them apart, which reads as the feature not working rather than
+         as a step not yet taken. -->
+    <details class="tip-block">
+      <summary>Getting better results</summary>
+      <div class="tip-body">
+        <p><b>Follow your servers first.</b> Open <b>Servers</b> and add the ones you play on.
+          BMFinder can then say which results have actually been seen on them, and lists those
+          first. Without any followed servers every result is an equally anonymous stranger,
+          and the <b>On your servers</b> column has nothing to fill in.</p>
+        <p><b>Search the name you saw in game</b>, not a tidied-up version. Decorations, clan
+          tags and odd spacing are handled, so paste the name as it appeared.</p>
+        <p><b>Fewer words find more.</b> A distinctive fragment often beats the full name: if
+          part of what you remember is wrong, the whole search is wrong with it.</p>
+        <p><b>Run live updates for a while.</b> The cross-reference is built from checks that
+          have already happened, so a longer history means more results it can place on a
+          server you follow.</p>
+      </div>
+    </details>
     <div class="card">
       <div class="row items-end form-compact">
         <div class="w-150"><label for="s-mode">Search by</label>

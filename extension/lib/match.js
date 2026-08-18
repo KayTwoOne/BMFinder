@@ -223,3 +223,23 @@ export function rankSearchResults(results, trackedOrder = []) {
   });
   return rows;
 }
+
+/* Rank server search results by name rather than by population.
+
+   The BattleMetrics results page is ordered the way it ranks servers, which is
+   broadly by how busy they are. A small server whose name matches the query
+   exactly can therefore sit below a busy one that merely shares a word, or fall
+   past the end of the page entirely. The user searched by NAME, so the name is
+   what should decide the order.
+
+   Nothing is discarded. A weak match is still a result, just not the first one,
+   and the original page order is kept as the tie-break so equally-good matches
+   still arrive most-popular-first.
+
+   Pure and side-effect free so it can be tested without a browser or network. */
+export function rankServerResults(query, rows) {
+  return (rows || [])
+    .map((r, i) => ({ ...r, score: matchScore(query, r.name || ""), order: i }))
+    .sort((a, b) => (b.score - a.score) || (a.order - b.order))
+    .map(({ order, ...r }) => r);
+}

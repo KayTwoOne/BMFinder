@@ -14,7 +14,7 @@ import { db } from "../lib/db.js";
 import { entriesFor, storesForParts } from "../lib/transfer.js";
 import {
   matchScore, searchTerm, unsearchable, usesWildcard,
-  rankSearchResults, confidenceScore, EVIDENCE,
+  rankSearchResults, rankServerResults, confidenceScore, EVIDENCE,
 } from "../lib/match.js";
 
 /* A name this close to the query is the player who was asked for. */
@@ -803,36 +803,54 @@ async function search(query, mode = "name") {
       there is no reason to think the server list treats it differently. Both
       forms are tried, filter[search] first, so whichever their router honours
       wins and a future change to either does not break the feature. */
-const serverSearchUrls = (query, game) => {
+const serverSearchUrls = (term, game) => {
   const base = `${SITE}/servers/${encodeURIComponent(game)}`;
-  const q = encodeURIComponent(query);
+  const q = encodeURIComponent(term);
   return [`${base}?filter%5Bsearch%5D=${q}`, `${base}?q=${q}`];
 };
 
+/* Server names are long and full of separators - "CodeFourGaming - King of the
+   Hill EU#1" - so a user typing the two parts they remember, "CodeFourGaming
+   EU#1", is asking for a phrase that does not appear anywhere in the name. The
+   raw query therefore misses the very server it names. searchTerm() bridges
+   each gap with the same wildcard the player search relies on, so the query
+   spans the words in between; the raw term is still tried afterwards in case
+   their matcher ever prefers it. */
 async function searchServers(query, game = "arma3") {
   if (job) return { error: "A refresh is already running." };
-  const term = String(query || "").trim();
-  if (!term) return { results: [], error: "Enter a server name to search for." };
+  const raw = String(query || "").trim();
+  if (!raw) return { results: [], error: "Enter a server name to search for." };
+
+  const bridged = searchTerm(raw);
+  const terms = bridged && bridged !== raw ? [bridged, raw] : [raw];
 
   job = { kind: "serversearch", total: 1, done: 0, cancelled: false, tabId: null };
   try {
     const tabId = await ensureTab();
     let diag = null;
-    for (const url of serverSearchUrls(term, game)) {
-      if (job.cancelled) break;
-      await navigate(tabId, url);
-      const resp = await sendTab(tabId, { type: "READ_SERVERSEARCH" });
-      const rows = (resp && resp.servers) || [];
-      if (rows.length) return { results: rows, searchedWith: url };
-      if (resp && resp.diag) diag = resp.diag;
+    for (const term of terms) {
+      for (const url of serverSearchUrls(term, game)) {
+        if (job.cancelled) break;
+        await navigate(tabId, url);
+        const resp = await sendTab(tabId, { type: "READ_SERVERSEARCH" });
+        const rows = (resp && resp.servers) || [];
+        if (rows.length) {
+          return {
+            results: rankServerResults(raw, rows),
+            searchedWith: url,
+            wildcarded: term !== raw,
+          };
+        }
+        if (resp && resp.diag) diag = resp.diag;
+      }
     }
-    if (diag) console.log("BMFinder server search diagnostic", diag);
     return { results: [], diag };
   } finally {
     await closeTab();
     job = null;
   }
 }
+
 
 
 /* ---- bookmark import ---------------------------------------------------- */

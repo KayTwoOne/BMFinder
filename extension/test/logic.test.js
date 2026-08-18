@@ -9,7 +9,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   matchScore, normalize, searchTerm, unsearchable, usesWildcard,
-  rankSearchResults, confidenceScore, EVIDENCE,
+  rankSearchResults, rankServerResults, confidenceScore, EVIDENCE,
 } from "../lib/match.js";
 import {
   RELATIONSHIPS, RELATIONSHIP_LABEL, RELATIONSHIP_SHORT, RELATIONSHIP_HINT, toRelationship,
@@ -358,3 +358,38 @@ test("similar but distinct names stay below the match threshold", () => {
   assert.ok(matchScore("John", "Jonathan") < 0.95);
 });
 
+/* ---- server search ranking ----------------------------------------------
+   BattleMetrics returns its server results population-first, so the server the
+   user actually named can sit below busier ones that merely share a word. */
+
+const srvPage = [
+  { id: "1", name: "CodeFourGaming - King of the Hill US#4 - Infantry" },
+  { id: "2", name: "CodeFourGaming - King of the Hill US#5 - RHS Vehicle" },
+  { id: "3", name: "CodeFourGaming - King of the Hill EU#1" },
+];
+
+test("the named server ranks first even when the page ranked it last", () => {
+  const out = rankServerResults("CodeFourGaming - King of the Hill EU#1", srvPage);
+  assert.equal(out[0].id, "3");
+  assert.equal(out[0].score, 1);
+});
+
+test("ranking reorders servers without dropping any", () => {
+  assert.equal(rankServerResults("EU#1", srvPage).length, srvPage.length);
+});
+
+test("a partial server name still matches, just lower", () => {
+  const out = rankServerResults("King of the Hill", srvPage);
+  assert.equal(out.length, 3);
+  assert.ok(out[0].score > 0, "a partial match should score above zero");
+});
+
+test("equally-good server matches keep the page's popularity order", () => {
+  const tied = [{ id: "a", name: "Identical Name" }, { id: "b", name: "Identical Name" }];
+  assert.deepEqual(ids(rankServerResults("Identical Name", tied)), ["a", "b"]);
+});
+
+test("server ranking survives an empty list and a nameless row", () => {
+  assert.deepEqual(rankServerResults("x", []), []);
+  assert.equal(rankServerResults("x", [{ id: "1" }])[0].score, 0);
+});

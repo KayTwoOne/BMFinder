@@ -486,6 +486,7 @@ button.ghost:hover, button.ghost:active,
 .p-compact { padding: 6px 8px; }
 .m-0 { margin: 0; } .mt-0 { margin-top: 0; } .mt-n4 { margin-top: -4px; }
 .mt-8 { margin-top: 8px; } .mt-10 { margin-top: 10px; } .mt-12 { margin-top: 12px; }
+.mb-8 { margin-bottom: 8px; }
 .hide { display: none !important; }
 /* blurred for a static screenshot, sharpens on hover so it stays readable live */
 .obf { filter: blur(6px); transition: filter 120ms var(--ease); }
@@ -1020,6 +1021,17 @@ td { position: relative; }
   letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--md-on-surface-variant);
 }
+/* The section switch sits in the legend, so it has to opt out of the legend's
+   uppercase label styling and read as the control it is. */
+.exp-group legend .exp-section {
+  display: inline-flex; align-items: center; gap: 6px;
+  text-transform: none; letter-spacing: 0.02em; font-size: 12px;
+  color: var(--md-on-surface); cursor: pointer;
+}
+/* An excluded section keeps its shape so the layout does not jump, but stops
+   competing for attention: nothing inside it is going into the file. */
+.exp-group.section-off { opacity: 0.45; }
+.exp-group.section-off legend .exp-section { opacity: 1; }
 .exp-group label {
   display: flex; align-items: flex-start; gap: 9px;
   padding: 5px 0; font-size: var(--t-body); cursor: pointer;
@@ -1516,3 +1528,42 @@ td .unknown, .unknown-text { color: var(--md-on-surface-variant); opacity: 0.8; 
 /* ---- focus visibility (accessibility) ------------------------------------- */
 :focus-visible { outline: 2px solid var(--md-primary); outline-offset: 2px; }
 button:focus-visible, .swatch:focus-visible { outline-offset: 3px; }
+
+/* ---- collapsible guidance -------------------------------------------------
+   Advice that is only wanted once should not occupy the page forever. Closed by
+   default so the tab still opens on the thing it is for; the summary carries
+   enough of the promise that someone stuck knows to open it. */
+.tip-block {
+  margin: 0 0 var(--s-4);
+  background: var(--md-surface-container);
+  border: 1px solid var(--md-outline-variant);
+  border-radius: var(--r-lg);
+}
+.tip-block > summary {
+  padding: 12px var(--s-5);
+  font-size: var(--t-meta); font-weight: 700;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--md-on-surface-variant);
+  cursor: pointer; list-style: none;
+}
+.tip-block > summary::-webkit-details-marker { display: none; }
+/* A rotating caret, so open and closed are distinguishable without colour. */
+.tip-block > summary::before {
+  content: "\25B8"; display: inline-block; margin-right: 8px;
+  transition: transform var(--dur) var(--ease);
+}
+.tip-block[open] > summary::before { transform: rotate(90deg); }
+.tip-block > summary:hover { color: var(--md-on-surface); }
+.tip-block .tip-body {
+  padding: 0 var(--s-5) var(--s-4);
+  max-width: 74ch;
+}
+.tip-block .tip-body p {
+  margin: 0 0 var(--s-3); line-height: 1.6;
+  font-size: var(--t-meta); color: var(--md-on-surface-variant);
+}
+.tip-block .tip-body p:last-child { margin-bottom: 0; }
+.tip-block .tip-body b { color: var(--md-on-surface); }
+@media (prefers-reduced-motion: reduce) {
+  .tip-block > summary::before { transition: none; }
+}
